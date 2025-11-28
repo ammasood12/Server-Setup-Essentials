@@ -8,7 +8,7 @@
 # - Proxy tools menu (V2bX installer)
 # - Default Setup: auto swap + base tools + timezone (no prompts)
 #
-VERSION="v2.0.2"
+VERSION="v2.3"
 
 set -euo pipefail
 
@@ -724,4 +724,5 @@ main_menu() {
 require_root
 main_menu
 exit 0
+
 
