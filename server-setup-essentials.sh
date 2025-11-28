@@ -8,7 +8,7 @@
 # - Proxy tools menu (V2bX installer)
 # - Default Setup: auto swap + base tools + timezone (no prompts)
 
-VERSION="v2.2.1"
+VERSION="v2.2.1.1"
 set -euo pipefail
 
 #######################################
@@ -122,7 +122,7 @@ display_system_status() {
     echo -e "  💿 Disk Available: ${CYAN}$(get_disk_available_mb)MB${RESET}"
     
     # Disk type detection
-    local disk_type=$(lsblk -d -o ROTA 2>/dev/null | awk 'NR==2')
+    local disk_type=$(lsblk -d -o ROTA 2>/dev/null | awk 'NR==2 {print $1}')
     if [[ "$disk_type" == "0" ]]; then
         echo -e "  🚀 Disk Type: ${CYAN}SSD${RESET}"
     elif [[ "$disk_type" == "1" ]]; then
