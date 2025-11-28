@@ -544,7 +544,13 @@ default_setup() {
 
   echo -e "${BOLD}Plan:${RESET}"
   echo -e "  RAM detected       : ${CYAN}${ram_mb}MB${RESET}"
-  echo -e "  Swap configuration : ${CYAN}$([[ "$rec_swap" -gt 0 ]] && echo \"Auto -> ${rec_swap}MB\" || echo \"No change (RAM > 4GB)\")${RESET}"
+	if [[ "$rec_swap" -gt 0 ]]; then
+	  swap_msg="Auto -> ${rec_swap}MB"
+	else
+	  swap_msg="No change (RAM > 4GB)"
+	fi
+
+	echo -e "  Swap configuration : ${CYAN}${swap_msg}${RESET}"
   echo -e "  Timezone           : will ask you to choose (default suggestion: ${DEFAULT_TIMEZONE})"
   echo -e "  Base software      : ${CYAN}${base_pkgs[*]}${RESET}"
   echo
