@@ -1,513 +1,307 @@
 #!/usr/bin/env bash
 #
-# Server Setup Essentials
+# Server Setup Essentials - Clean Slate Version
 # - Interactive menu
 # - Safe swap management with auto temporary swap safety mode
 # - Timezone configuration (menu + default Asia/Shanghai in Default Setup)
 # - Software installation (multi-select)
 # - Proxy tools menu (V2bX installer)
 # - Default Setup: auto swap + base tools + timezone (no prompts)
-#!/usr/bin/env bash
-#
-# Server Setup Essentials - Fixed Version
-#
 
-VERSION="v2.1.1"
+VERSION="v2.2.1"
 set -euo pipefail
 
 #######################################
 # Colors and Styles
 #######################################
-readonly RED="\e[31m"
-readonly GREEN="\e[32m"
-readonly YELLOW="\e[33m"
-readonly BLUE="\e[34m"
-readonly MAGENTA="\e[35m"
-readonly CYAN="\e[36m"
-readonly BOLD="\e[1m"
-readonly DIM="\e[2m"
-readonly RESET="\e[0m"
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly MAGENTA='\033[0;35m'
+readonly CYAN='\033[0;36m'
+readonly BOLD='\033[1m'
+readonly RESET='\033[0m'
 
 #######################################
-# Global Configuration
+# Configuration
 #######################################
 readonly SWAPFILE="/swapfile"
-readonly MIN_SAFE_FREE_RAM_MB=200
+readonly MIN_SAFE_RAM_MB=100
 readonly DEFAULT_TIMEZONE="Asia/Shanghai"
-readonly TEMP_SWAP_PATH="/tmp/server_setup_essentials_temp_swap"
-readonly BASE_PACKAGES=("nano" "vnstat" "curl" "wget" "htop" "git" "unzip" "screen")
-
-TEMP_SWAP_ACTIVE=0
+readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen")
 
 #######################################
-# Helper Functions
+# Logging Functions
+#######################################
+log_info()  { echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}"; }
+log_ok()    { echo -e "${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}"; }
+log_warn()  { echo -e "${YELLOW}${BOLD}[WARN]${RESET} ${YELLOW}$*${RESET}"; }
+log_error() { echo -e "${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}"; }
+
+#######################################
+# Utility Functions
 #######################################
 require_root() {
-    if [[ "$EUID" -ne 0 ]]; then
-        echo -e "${RED}╭─────────────────────────────────────────╮${RESET}"
-        echo -e "${RED}│            ${BOLD}PERMISSION ERROR${RESET}${RED}             │${RESET}"
-        echo -e "${RED}╰─────────────────────────────────────────╯${RESET}"
-        echo -e "${RED}Please run this script as root or with sudo.${RESET}"
-        echo
+    [[ $EUID -eq 0 ]] || {
+        log_error "This script must be run as root"
         exit 1
-    fi
+    }
 }
-
-log_info()  { echo -e "${CYAN}${BOLD}[ℹ]${RESET} ${CYAN}$*${RESET}"; }
-log_ok()    { echo -e "${GREEN}${BOLD}[✓]${RESET} ${GREEN}$*${RESET}"; }
-log_warn()  { echo -e "${YELLOW}${BOLD}[!]${RESET} ${YELLOW}$*${RESET}"; }
-log_error() { echo -e "${RED}${BOLD}[✗]${RESET} ${RED}$*${RESET}"; }
 
 pause() {
     echo
-    read -rp "$(echo -e "${DIM}Press ${BOLD}Enter${RESET}${DIM} to continue...${RESET}")" _
-    echo
+    read -rp "Press Enter to continue..." _
 }
 
 print_separator() {
-    echo -e "${DIM}─────────────────────────────────────────────────────${RESET}"
+    echo -e "${BLUE}─────────────────────────────────────────────────────${RESET}"
 }
 
 banner() {
     clear
-    echo -e "${BOLD}${BLUE}╔═════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${BLUE}║    🚀 Server Setup Essentials ${VERSION}    ║${RESET}"
-    echo -e "${BOLD}${BLUE}╚═════════════════════════════════════════════════╝${RESET}"
-    echo
+    echo -e "${BOLD}${BLUE}"
+    echo "╔═════════════════════════════════════════════════╗"
+    echo "║           🚀 Server Setup Essentials            ║"
+    echo "║                   ${VERSION}                     ║"
+    echo "╚═════════════════════════════════════════════════╝"
+    echo -e "${RESET}"
 }
 
 section_title() {
     echo
-    echo -e "${BOLD}${MAGENTA}🛠  $*${RESET}"
+    echo -e "${BOLD}${MAGENTA}🔧 $*${RESET}"
     print_separator
 }
 
 #######################################
-# System Information Functions
+# System Information
 #######################################
 get_ram_mb() {
-    local mem_kb
-    mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    echo $(( (mem_kb + 512) / 1024 ))
-}
-
-get_free_ram_mb() {
-    free -m | awk '/Mem:/ {print $4}'
+    grep MemTotal /proc/meminfo | awk '{printf "%.0f", $2/1024}'
 }
 
 get_swap_total_mb() {
     free -m | awk '/Swap:/ {print $2}'
 }
 
-get_swap_free_mb() {
-    free -m | awk '/Swap:/ {print $4}'
+get_swap_used_mb() {
+    free -m | awk '/Swap:/ {print $3}'
 }
 
-get_swap_used_mb() {
-    local total free
-    total=$(get_swap_total_mb)
-    free=$(get_swap_free_mb)
-    echo $(( total - free ))
+get_free_ram_mb() {
+    free -m | awk '/Mem:/ {print $4}'
+}
+
+get_disk_available_mb() {
+    df -m / | awk 'NR==2 {print $4}'
+}
+
+get_active_swap_files() {
+    swapon --show=NAME --noheadings 2>/dev/null | tr -d '[:space:]' || true
 }
 
 recommended_swap_mb() {
-    local ram_mb
-    ram_mb=$(get_ram_mb)
-
-    if [[ "$ram_mb" -le 1024 ]]; then
-        echo 2048      # <=1GB RAM -> 2GB swap
-    elif [[ "$ram_mb" -le 2048 ]]; then
-        echo 2048      # <=2GB RAM -> 2GB swap
-    elif [[ "$ram_mb" -le 4096 ]]; then
-        echo 1024      # <=4GB RAM -> 1GB swap
+    local ram_mb=$(get_ram_mb)
+    
+    if [[ $ram_mb -le 1024 ]]; then
+        echo 2048
+    elif [[ $ram_mb -le 2048 ]]; then
+        echo 2048
+    elif [[ $ram_mb -le 4096 ]]; then
+        echo 1024
     else
-        echo 0         # >4GB RAM -> usually no swap needed
+        echo 0
     fi
 }
 
-get_existing_swap_files() {
-    swapon --show=NAME --noheadings 2>/dev/null | while read -r dev; do
-        [[ -f "$dev" ]] && echo "$dev"
-    done
-}
-
-display_system_info() {
-    local ram_mb swap_mb free_ram_mb
-    ram_mb=$(get_ram_mb)
-    swap_mb=$(get_swap_total_mb)
-    free_ram_mb=$(get_free_ram_mb)
+display_system_status() {
+    echo -e "${BOLD}System Status:${RESET}"
+    echo -e "  💻 RAM: ${CYAN}$(get_ram_mb)MB${RESET} (Free: $(get_free_ram_mb)MB)"
+    echo -e "  💾 Swap: ${CYAN}$(get_swap_total_mb)MB${RESET} (Used: $(get_swap_used_mb)MB)"
+    echo -e "  💿 Disk Available: ${CYAN}$(get_disk_available_mb)MB${RESET}"
     
-    echo -e "${BOLD}${CYAN}📊 System Overview:${RESET}"
-    echo -e "  ${DIM}•${RESET} RAM Total    : ${CYAN}${ram_mb} MB${RESET}"
-    echo -e "  ${DIM}•${RESET} RAM Free     : ${CYAN}${free_ram_mb} MB${RESET}"
-    echo -e "  ${DIM}•${RESET} Swap Total   : ${CYAN}${swap_mb} MB${RESET}"
-    echo -e "  ${DIM}•${RESET} Timezone    : ${CYAN}$(timedatectl show -p Timezone --value 2>/dev/null || echo "Unknown")${RESET}"
-    print_separator
+    local active_swap=$(get_active_swap_files)
+    if [[ -n "$active_swap" ]]; then
+        echo -e "  📋 Active Swap Files: ${CYAN}$active_swap${RESET}"
+    fi
+    echo
 }
 
 #######################################
-# Memory Safety & Temporary Swap
+# Swap Management Core
 #######################################
-memory_safety_check() {
-    local free_ram_mb swap_used_mb
-    free_ram_mb=$(get_free_ram_mb)
-    swap_used_mb=$(get_swap_used_mb)
+cleanup_existing_swap() {
+    log_info "Cleaning up existing swap configuration..."
+    
+    # Get all active swap files
+    local active_swaps
+    active_swaps=$(swapon --show=NAME --noheadings 2>/dev/null || true)
+    
+    if [[ -n "$active_swaps" ]]; then
+        log_info "Disabling active swap files..."
+        swapoff -a 2>/dev/null || {
+            log_warn "Some swap files could not be disabled (may be in use)"
+        }
+    fi
+    
+    # Remove swap files
+    local swap_files=("/swapfile" "/swapfile.new" "/swapfile2" "/tmp/temp_swap_"*)
+    for file in "${swap_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            log_info "Removing: $file"
+            rm -f "$file" 2>/dev/null || log_warn "Could not remove: $file"
+        fi
+    done
+    
+    # Clean fstab
+    if grep -q "swapfile" /etc/fstab 2>/dev/null; then
+        log_info "Cleaning /etc/fstab..."
+        sed -i '/swapfile/d' /etc/fstab 2>/dev/null || true
+    fi
+    
+    log_ok "Cleanup completed"
+}
 
-    log_info "Current free RAM: ${free_ram_mb}MB"
-    log_info "Current swap used: ${swap_used_mb}MB"
-
-    if [[ "$free_ram_mb" -lt "$MIN_SAFE_FREE_RAM_MB" && "$swap_used_mb" -gt 0 ]]; then
+create_swap_file() {
+    local file_path="$1"
+    local size_mb="$2"
+    
+    log_info "Creating swap file: ${file_path} (${size_mb}MB)"
+    
+    # Check disk space
+    local available_mb=$(get_disk_available_mb)
+    if [[ $available_mb -lt $size_mb ]]; then
+        log_error "Insufficient disk space. Available: ${available_mb}MB, Required: ${size_mb}MB"
         return 1
     fi
-    return 0
-}
-
-enable_temp_swap() {
-    if [[ "$TEMP_SWAP_ACTIVE" -eq 1 ]]; then
-        return 0
-    fi
-
-    log_warn "Free RAM is low. Enabling temporary safety swap (${CYAN}1024MB${RESET})..."
     
-    if [[ -e "$TEMP_SWAP_PATH" ]]; then
-        log_warn "Temporary swap file already exists, trying to use it."
-    else
-        log_info "Creating temporary swap file..."
-        
-        # Try different methods to create swap file
-        if command -v fallocate >/dev/null 2>&1; then
-            log_info "Using fallocate to create swap file..."
-            if ! fallocate -l 1024M "$TEMP_SWAP_PATH" 2>/dev/null; then
-                log_warn "fallocate failed, trying dd method..."
-                if ! dd if=/dev/zero of="$TEMP_SWAP_PATH" bs=1M count=1024 status=none 2>/dev/null; then
-                    log_error "Both fallocate and dd failed to create temporary swap file."
-                    return 1
-                fi
-            fi
-        else
-            log_info "Using dd to create swap file..."
-            if ! dd if=/dev/zero of="$TEMP_SWAP_PATH" bs=1M count=1024 status=none 2>/dev/null; then
-                log_error "dd failed to create temporary swap file."
+    # Create file
+    if command -v fallocate >/dev/null 2>&1; then
+        if ! fallocate -l "${size_mb}M" "$file_path"; then
+            log_warn "fallocate failed, using dd..."
+            if ! dd if=/dev/zero of="$file_path" bs=1M count="$size_mb" status=none; then
+                log_error "Failed to create swap file"
                 return 1
             fi
         fi
-        
-        # Set proper permissions
-        if ! chmod 600 "$TEMP_SWAP_PATH"; then
-            log_error "Failed to set permissions on temporary swap file."
-            rm -f "$TEMP_SWAP_PATH" 2>/dev/null || true
-            return 1
-        fi
-        
-        # Format as swap
-        log_info "Formatting temporary swap file..."
-        if ! mkswap "$TEMP_SWAP_PATH" >/dev/null 2>&1; then
-            log_error "Failed to format temporary swap file."
-            rm -f "$TEMP_SWAP_PATH" 2>/dev/null || true
+    else
+        if ! dd if=/dev/zero of="$file_path" bs=1M count="$size_mb" status=none; then
+            log_error "Failed to create swap file"
             return 1
         fi
     fi
-
-    # Enable the swap
-    log_info "Enabling temporary swap..."
-    if swapon "$TEMP_SWAP_PATH" 2>/dev/null; then
-        TEMP_SWAP_ACTIVE=1
-        log_ok "Temporary swap enabled at $TEMP_SWAP_PATH (1024MB)."
-        return 0
-    else
-        log_error "Failed to enable temporary swap."
-        rm -f "$TEMP_SWAP_PATH" 2>/dev/null || true
+    
+    # Set permissions and format
+    chmod 600 "$file_path" || {
+        log_error "Failed to set permissions"
+        return 1
+    }
+    
+    if ! mkswap "$file_path" >/dev/null 2>&1; then
+        log_error "Failed to format swap file"
+        rm -f "$file_path" 2>/dev/null || true
         return 1
     fi
-}
-
-disable_temp_swap() {
-    if [[ "$TEMP_SWAP_ACTIVE" -eq 1 ]]; then
-        log_info "Disabling temporary safety swap..."
-        if swapoff "$TEMP_SWAP_PATH" 2>/dev/null; then
-            log_ok "Temporary swap disabled."
-        else
-            log_warn "Failed to disable temporary swap (may not be active)."
-        fi
-        if rm -f "$TEMP_SWAP_PATH" 2>/dev/null; then
-            log_ok "Temporary swap file removed."
-        else
-            log_warn "Failed to remove temporary swap file."
-        fi
-        TEMP_SWAP_ACTIVE=0
+    
+    if ! swapon "$file_path"; then
+        log_error "Failed to enable swap file"
+        rm -f "$file_path" 2>/dev/null || true
+        return 1
     fi
+    
+    log_ok "Swap file created and enabled successfully"
+    return 0
 }
 
-#######################################
-# Swap Operations (Fixed Version)
-#######################################
-create_new_swapfile() {
+setup_swap() {
     local target_mb="$1"
-    local new_swap="${SWAPFILE}.new"
-
-    log_info "Creating new swapfile: ${new_swap} (${target_mb}MB)"
+    local current_swap=$(get_swap_total_mb)
     
-    # Remove any previous file
-    if [[ -f "$new_swap" ]]; then
-        log_info "Removing existing swap file: $new_swap"
-        rm -f "$new_swap" 2>/dev/null || {
-            log_error "Failed to remove existing swap file."
-            return 1
-        }
-    fi
-
-    # Check available disk space
-    local available_mb
-    available_mb=$(df -m "$(dirname "$new_swap")" | awk 'NR==2 {print $4}')
-    if [[ "$available_mb" -lt "$target_mb" ]]; then
-        log_error "Insufficient disk space. Available: ${available_mb}MB, Required: ${target_mb}MB"
-        return 1
-    fi
-
-    log_info "Available disk space: ${available_mb}MB"
-
-    # Create swap file with better error handling
-    log_info "Creating swap file using dd (this may take a while for large sizes)..."
-    
-    if ! dd if=/dev/zero of="$new_swap" bs=1M count="$target_mb" status=progress 2>&1; then
-        log_error "Failed to create swap file using dd."
-        rm -f "$new_swap" 2>/dev/null || true
-        return 1
-    fi
-
-    # Verify file was created with correct size
-    local actual_size
-    actual_size=$(stat -c%s "$new_swap" 2>/dev/null || stat -f%z "$new_swap" 2>/dev/null)
-    local expected_size=$(( target_mb * 1024 * 1024 ))
-    
-    if [[ "$actual_size" -ne "$expected_size" ]]; then
-        log_error "Swap file size incorrect. Expected: ${expected_size}, Got: ${actual_size}"
-        rm -f "$new_swap" 2>/dev/null || true
-        return 1
-    fi
-
-    # Set permissions
-    if ! chmod 600 "$new_swap"; then
-        log_error "Failed to set permissions on swap file."
-        rm -f "$new_swap" 2>/dev/null || true
-        return 1
-    fi
-
-    # Format as swap
-    log_info "Formatting swap file..."
-    if ! mkswap "$new_swap" >/dev/null 2>&1; then
-        log_error "mkswap failed for the new swap file."
-        rm -f "$new_swap" 2>/dev/null || true
-        return 1
-    fi
-
-    log_ok "Swap file created successfully: $new_swap (${target_mb}MB)"
-    echo "$new_swap"
-}
-
-activate_swapfile() {
-    local newswap="$1"
-
-    if [[ ! -f "$newswap" ]]; then
-        log_error "New swapfile missing: $newswap"
-        return 1
-    fi
-
-    log_info "Activating new swap: $newswap"
-    if ! swapon "$newswap" 2>/dev/null; then
-        log_error "swapon failed for $newswap"
-        return 1
-    fi
-
-    log_ok "New swap activated successfully."
-    return 0
-}
-
-disable_and_remove_old_swapfile() {
-    local old="$1"
-
-    if [[ -z "$old" ]]; then
-        log_info "No old swapfile to disable."
-        return 0
-    fi
-
-    log_info "Disabling old swapfile: $old"
-    if swapoff "$old" 2>/dev/null; then
-        log_ok "Old swapfile disabled."
-    else
-        log_warn "swapoff failed for $old (may not be active or already disabled)"
-    fi
-
-    if [[ -f "$old" ]]; then
-        log_info "Removing old swapfile: $old"
-        if rm -f "$old" 2>/dev/null; then
-            log_ok "Old swapfile removed."
-        else
-            log_warn "Failed to remove old swapfile: $old"
-        fi
-    fi
-
-    return 0
-}
-
-finalize_new_swapfile() {
-    local newswap="$1"
-
-    log_info "Finalizing new swapfile configuration..."
-    
-    # Backup existing swapfile if it exists
-    if [[ -f "$SWAPFILE" ]]; then
-        local backup_file="${SWAPFILE}.backup.$(date +%Y%m%d_%H%M%S)"
-        log_info "Backing up existing swapfile to: $backup_file"
-        mv "$SWAPFILE" "$backup_file" 2>/dev/null || true
-    fi
-
-    # Move new swapfile to final location
-    if mv "$newswap" "$SWAPFILE"; then
-        log_ok "New swapfile moved to final location: $SWAPFILE"
-    else
-        log_error "Failed to move new swapfile to final location."
-        return 1
-    fi
-
-    # Update fstab
-    log_info "Updating /etc/fstab..."
-    if ! sed -i '/swapfile/d' /etc/fstab 2>/dev/null; then
-        log_warn "Failed to remove old swap entries from fstab, continuing..."
-    fi
-    
-    if echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab; then
-        log_ok "Swap entry added to /etc/fstab"
-    else
-        log_error "Failed to update /etc/fstab"
-        return 1
-    fi
-
-    return 0
-}
-
-apply_swap_change() {
-    local target_mb="$1"
-    local current_swap_mb
-    current_swap_mb=$(get_swap_total_mb)
-
-    [[ "$target_mb" -eq "$current_swap_mb" ]] && {
-        log_info "Swap already ${current_swap_mb}MB → No change needed"
+    [[ $target_mb -eq $current_swap ]] && {
+        log_info "Swap already at ${current_mb}MB - no changes needed"
         return 0
     }
-
-    section_title "Swap Change Plan"
-    echo -e "  ${DIM}•${RESET} Current swap : ${CYAN}${current_swap_mb}MB${RESET}"
-    echo -e "  ${DIM}•${RESET} Target swap  : ${CYAN}${target_mb}MB${RESET}"
-    echo
-
-    # If not in auto mode, ask for confirmation
-    if [[ "${2:-}" != "AUTO" ]]; then
-        read -rp "$(echo -e "${YELLOW}Apply this swap change? ${BOLD}(y/N):${RESET} ")" ans
-        if [[ "$ans" != "y" && "$ans" != "Y" ]]; then
-            log_warn "Swap change cancelled."
-            return 0
-        fi
-    fi
-
-    # Safety check and enable temporary swap if needed
-    if ! memory_safety_check; then
-        log_warn "Memory low → enabling temporary safety swap..."
-        if ! enable_temp_swap; then
-            log_error "Failed to enable temporary swap → aborting swap change"
-            return 1
-        fi
-    fi
-
-    # Create new swapfile
-    log_info "Starting swapfile creation process..."
-    local new_swapfile
-    new_swapfile=$(create_new_swapfile "$target_mb")
-    if [[ -z "$new_swapfile" || ! -f "$new_swapfile" ]]; then
-        log_error "Swapfile creation failed. Please check disk space and permissions."
-        disable_temp_swap
+    
+    section_title "Configuring Swap: ${current_swap}MB → ${target_mb}MB"
+    
+    # Clean up first
+    cleanup_existing_swap
+    
+    # Create new swap file
+    if create_swap_file "$SWAPFILE" "$target_mb"; then
+        # Update fstab
+        echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
+        log_ok "Swap configuration completed successfully"
+        
+        # Show final status
+        echo
+        free -h
+        echo
+        swapon --show
+    else
+        log_error "Failed to configure swap"
         return 1
     fi
-
-    # Activate new swapfile
-    if ! activate_swapfile "$new_swapfile"; then
-        log_error "Failed to activate new swap."
-        rm -f "$new_swapfile" 2>/dev/null || true
-        disable_temp_swap
-        return 1
-    fi
-
-    # Find old swapfile (excluding new + temp)
-    local old_swapfile=""
-    mapfile -t existing_files < <(get_existing_swap_files)
-    for f in "${existing_files[@]}"; do
-        if [[ "$f" != "$new_swapfile" && "$f" != "$TEMP_SWAP_PATH" && "$f" != "$SWAPFILE" ]]; then
-            old_swapfile="$f"
-            break
-        fi
-    done
-
-    # Disable & remove old swapfile
-    disable_and_remove_old_swapfile "$old_swapfile"
-
-    # Finalize new swap
-    if ! finalize_new_swapfile "$new_swapfile"; then
-        log_error "Failed to finalize new swap configuration."
-        disable_temp_swap
-        return 1
-    fi
-
-    # Remove temporary safety swap if active
-    disable_temp_swap
-
-    log_ok "Swap update completed successfully."
-    echo
-    echo -e "${BOLD}${GREEN}📈 Final Memory Status:${RESET}"
-    free -h
-    echo
-    echo -e "${BOLD}${GREEN}💾 Active Swap Files:${RESET}"
-    swapon --show || echo "No active swap files"
 }
 
-# ... (rest of the functions remain the same as in the previous improved version)
-# [The rest of the functions - swap_management_menu, choose_timezone, apt_install_packages, 
-# install_softwares_menu, install_v2bx, proxy_tools_menu, default_setup, main_menu - 
-# remain exactly the same as in the previous improved version]
-
 #######################################
-# Main Menu
+# Swap Management Menu
 #######################################
-main_menu() {
+swap_management_menu() {
     while true; do
         banner
-        echo -e "${BOLD}${BLUE}📋 Main Menu${RESET}"
-        print_separator
-        display_system_info
+        section_title "Swap Management"
         
-        echo -e "${BOLD}${CYAN}🎯 Available Operations:${RESET}"
-        echo "1) Swap Management"
-        echo "2) Install Common Software"
-        echo "3) Configure Timezone"
-        echo "4) Install Proxy Tools (V2bX etc.)"
-        echo "5) Default Setup (auto swap + base tools + timezone)"
-        echo "6) Exit"
+        display_system_status
+        
+        echo -e "${BOLD}Available Actions:${RESET}"
+        echo "1) Auto-configure swap (recommended)"
+        echo "2) Set custom swap size"
+        echo "3) Clean up all swap files and start fresh"
+        echo "4) Show detailed status"
+        echo "5) Back to main menu"
         echo
-        read -rp "$(echo -e "${BOLD}Choose an option [1-6]: ${RESET}")" choice
-
-        case "$choice" in
-            1) swap_management_menu ;;
-            2) install_softwares_menu ;;
-            3) choose_timezone ;;
-            4) proxy_tools_menu ;;
-            5) default_setup ;;
-            6)
+        
+        read -rp "Choose option [1-5]: " choice
+        
+        case $choice in
+            1)
+                local recommended=$(recommended_swap_mb)
+                if [[ $recommended -gt 0 ]]; then
+                    setup_swap $recommended
+                else
+                    log_info "System has sufficient RAM - no swap recommended"
+                fi
+                pause
+                ;;
+            2)
+                read -rp "Enter swap size in MB: " custom_size
+                if [[ $custom_size =~ ^[0-9]+$ ]] && [[ $custom_size -gt 0 ]]; then
+                    setup_swap $custom_size
+                else
+                    log_error "Invalid size entered"
+                fi
+                pause
+                ;;
+            3)
+                log_info "Starting fresh swap configuration..."
+                cleanup_existing_swap
+                log_ok "System is now clean. Use option 1 or 2 to configure new swap."
+                pause
+                ;;
+            4)
                 echo
-                log_ok "Thank you for using Server Setup Essentials. Goodbye! 👋"
+                free -h
                 echo
-                exit 0
+                swapon --show 2>/dev/null || log_info "No swap files active"
+                pause
+                ;;
+            5)
+                return
                 ;;
             *)
-                log_warn "Invalid choice. Please select 1-6."
+                log_warn "Invalid choice"
                 pause
                 ;;
         esac
@@ -515,13 +309,233 @@ main_menu() {
 }
 
 #######################################
-# Entry Point
+# Timezone Configuration
+#######################################
+configure_timezone() {
+    section_title "Timezone Configuration"
+    
+    local current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")
+    echo -e "Current timezone: ${CYAN}${current_tz}${RESET}"
+    echo
+    
+    echo "Available timezones:"
+    echo "1) Asia/Shanghai"
+    echo "2) Asia/Tokyo" 
+    echo "3) Asia/Singapore"
+    echo "4) UTC"
+    echo "5) Custom input"
+    echo "6) Cancel"
+    echo
+    
+    read -rp "Choose option [1-6]: " tz_choice
+    
+    case $tz_choice in
+        1) local new_tz="Asia/Shanghai" ;;
+        2) local new_tz="Asia/Tokyo" ;;
+        3) local new_tz="Asia/Singapore" ;;
+        4) local new_tz="UTC" ;;
+        5)
+            read -rp "Enter timezone: " new_tz
+            [[ -z "$new_tz" ]] && {
+                log_warn "No timezone entered"
+                return
+            }
+            ;;
+        6)
+            log_warn "Timezone change cancelled"
+            return
+            ;;
+        *)
+            log_warn "Invalid choice"
+            return
+            ;;
+    esac
+    
+    if timedatectl set-timezone "$new_tz" 2>/dev/null; then
+        log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)"
+    else
+        log_error "Failed to set timezone: $new_tz"
+    fi
+    pause
+}
+
+#######################################
+# Package Management
+#######################################
+install_packages() {
+    section_title "Package Installation"
+    
+    echo "Select packages to install:"
+    echo "1) Essential tools (curl, wget, nano, htop, vnstat)"
+    echo "2) Development tools (git, unzip, screen)"
+    echo "3) All recommended packages"
+    echo "4) Custom selection"
+    echo "5) Cancel"
+    echo
+    
+    read -rp "Choose option [1-5]: " pkg_choice
+    
+    case $pkg_choice in
+        1)
+            local packages=("curl" "wget" "nano" "htop" "vnstat")
+            ;;
+        2)
+            local packages=("git" "unzip" "screen")
+            ;;
+        3)
+            local packages=("${BASE_PACKAGES[@]}")
+            ;;
+        4)
+            echo "Enter package names separated by spaces:"
+            read -r -a packages
+            ;;
+        5)
+            log_warn "Package installation cancelled"
+            return
+            ;;
+        *)
+            log_warn "Invalid choice"
+            return
+            ;;
+    esac
+    
+    [[ ${#packages[@]} -eq 0 ]] && {
+        log_warn "No packages selected"
+        return
+    }
+    
+    echo
+    echo -e "Packages to install: ${CYAN}${packages[*]}${RESET}"
+    read -rp "Proceed with installation? (y/N): " confirm
+    
+    [[ $confirm =~ ^[Yy]$ ]] || {
+        log_warn "Installation cancelled"
+        return
+    }
+    
+    log_info "Updating package lists..."
+    if ! apt update -y; then
+        log_error "Failed to update package lists"
+        return
+    fi
+    
+    log_info "Installing packages..."
+    if apt install -y "${packages[@]}"; then
+        log_ok "Packages installed successfully"
+    else
+        log_error "Some packages failed to install"
+    fi
+    pause
+}
+
+#######################################
+# Quick Setup
+#######################################
+quick_setup() {
+    section_title "Quick Server Setup"
+    
+    echo -e "${BOLD}This will perform:${RESET}"
+    echo "  • Clean up existing swap files"
+    echo "  • Auto-configure optimal swap"
+    echo "  • Set timezone to Asia/Shanghai" 
+    echo "  • Install essential packages"
+    echo
+    
+    read -rp "Proceed with quick setup? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || {
+        log_warn "Quick setup cancelled"
+        return
+    }
+    
+    # Clean up existing swap
+    log_info "Step 1: Cleaning up existing swap..."
+    cleanup_existing_swap
+    
+    # Configure swap
+    log_info "Step 2: Configuring swap..."
+    local recommended=$(recommended_swap_mb)
+    if [[ $recommended -gt 0 ]]; then
+        setup_swap $recommended
+    else
+        log_info "No swap configuration needed"
+    fi
+    
+    # Set timezone
+    log_info "Step 3: Setting timezone..."
+    if timedatectl set-timezone "$DEFAULT_TIMEZONE" 2>/dev/null; then
+        log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)"
+    else
+        log_warn "Failed to set timezone"
+    fi
+    
+    # Install packages
+    log_info "Step 4: Installing packages..."
+    if apt update -y && apt install -y "${BASE_PACKAGES[@]}"; then
+        log_ok "Packages installed successfully"
+    else
+        log_warn "Some packages failed to install"
+    fi
+    
+    log_ok "Quick setup completed!"
+    pause
+}
+
+#######################################
+# Main Menu
+#######################################
+main_menu() {
+    while true; do
+        banner
+        
+        echo -e "${BOLD}${BLUE}🏠 Main Menu${RESET}"
+        print_separator
+        
+        display_system_status
+        
+        echo -e "${BOLD}Available Actions:${RESET}"
+        echo "1) Swap Management"
+        echo "2) Configure Timezone" 
+        echo "3) Install Packages"
+        echo "4) Quick Setup (recommended for new servers)"
+        echo "5) Exit"
+        echo
+        
+        read -rp "Choose option [1-5]: " choice
+        
+        case $choice in
+            1) swap_management_menu ;;
+            2) configure_timezone ;;
+            3) install_packages ;;
+            4) quick_setup ;;
+            5)
+                echo
+                log_ok "Thank you for using Server Setup Essentials! 👋"
+                exit 0
+                ;;
+            *)
+                log_warn "Invalid choice"
+                pause
+                ;;
+        esac
+    done
+}
+
+#######################################
+# Main Execution
 #######################################
 main() {
     require_root
-    trap disable_temp_swap EXIT
+    trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
+    
+    # Check system
+    if ! [[ -f /etc/debian_version ]]; then
+        log_warn "This script is optimized for Debian-based systems"
+        read -rp "Continue anyway? (y/N): " proceed
+        [[ $proceed =~ ^[Yy]$ ]] || exit 1
+    fi
+    
     main_menu
 }
 
+# Run main function
 main "$@"
-exit 0
