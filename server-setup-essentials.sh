@@ -9,6 +9,7 @@
 # - Default Setup: auto swap + base tools + timezone (no prompts)
 #
 VERSION="v2.0.2"
+
 set -euo pipefail
 
 #######################################
@@ -723,3 +724,4 @@ main_menu() {
 require_root
 main_menu
 exit 0
+
