@@ -1,4 +1,4 @@
-# !/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Server Setup Essentials - Clean Slate Version
 # - Interactive menu
@@ -290,7 +290,7 @@ swap_management_menu() {
         echo "2) Set custom swap size"
         echo "3) Clean up all swap files and start fresh"
         echo "4) Show detailed status"
-        echo "5) Back to main menu"
+        echo "0) Back to main menu"
         echo
         
         read -rp "Choose option [1-5]: " choice
@@ -327,7 +327,7 @@ swap_management_menu() {
                 swapon --show 2>/dev/null || log_info "No swap files active"
                 pause
                 ;;
-            5)
+            0)
                 return
                 ;;
             *)
@@ -354,10 +354,10 @@ configure_timezone() {
     echo "3) Asia/Singapore"
     echo "4) UTC"
     echo "5) Custom input"
-    echo "6) Cancel"
+    echo "0) Cancel"
     echo
     
-    read -rp "Choose option [1-6]: " tz_choice
+    read -rp "Choose option [1-5]: " tz_choice
     
     case $tz_choice in
         1) local new_tz="Asia/Shanghai" ;;
@@ -371,7 +371,7 @@ configure_timezone() {
                 return
             }
             ;;
-        6)
+        0)
             log_warn "Timezone change cancelled"
             return
             ;;
@@ -400,7 +400,7 @@ install_packages() {
     echo "2) Development tools (git, unzip, screen)"
     echo "3) All recommended packages"
     echo "4) Custom selection"
-    echo "5) Cancel"
+    echo "0) Cancel"
     echo
     
     read -rp "Choose option [1-5]: " pkg_choice
@@ -419,7 +419,7 @@ install_packages() {
             echo "Enter package names separated by spaces:"
             read -r -a packages
             ;;
-        5)
+        0)
             log_warn "Package installation cancelled"
             return
             ;;
@@ -465,10 +465,11 @@ quick_setup() {
     section_title "Quick Server Setup"
     
     echo -e "${BOLD}This will perform:${RESET}"
-    echo "  • Clean up existing swap files"
+    echo "  • Clean up existing swap files/partition"
     echo "  • Auto-configure optimal swap"
     echo "  • Set timezone to Asia/Shanghai" 
-    echo "  • Install essential packages"
+    echo "  • Install following essential packages:"
+    echo "  - curl, wget, nano, htop, vnstat, git, unzip, screen"
     echo
     
     read -rp "Proceed with quick setup? (y/N): " confirm
@@ -527,7 +528,7 @@ main_menu() {
         echo "2) Configure Timezone" 
         echo "3) Install Packages"
         echo "4) Quick Setup (recommended for new servers)"
-        echo "5) Exit"
+        echo "0) Exit"
         echo
         
         read -rp "Choose option [1-5]: " choice
@@ -537,7 +538,7 @@ main_menu() {
             2) configure_timezone ;;
             3) install_packages ;;
             4) quick_setup ;;
-            5)
+            0)
                 echo
                 log_ok "Thank you for using Server Setup Essentials! 👋"
                 exit 0
