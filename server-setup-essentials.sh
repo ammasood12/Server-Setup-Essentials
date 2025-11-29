@@ -65,25 +65,26 @@ print_separator() {
 }
 
 print_double_separator() {
-    echo -e "${PURPLE}═════════════════════════════════════════════════${RESET}"
+    local dummy
+	# echo -e "${PURPLE}═════════════════════════════════════════════════${RESET}"
 }
 
 banner() {
     clear
-    echo -e "${BOLD}${BLUE}"
-    echo "╔══════════════════════════════════════════════════════╗"
-    echo "║                                                      ║"
-    echo "║           🚀 SERVER SETUP ESSENTIALS                 ║"
-    echo "║                   ${VERSION}                            ║"
-    echo "║                                                      ║"
-    echo "╚══════════════════════════════════════════════════════╝"
-    echo -e "${RESET}"
+    # echo -e "${BOLD}${CYAN}"
+	echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${CYAN}║              SERVER SETUP ESSENTIALS ${VERSION}                    ║${RESET}"
+    echo -e "${BOLD}${CYAN}╠════════════════════════════════════════════════════════════════╣${RESET}"
+    # echo -e "${RESET}"
 }
 
 section_title() {
+	banner
+	print_double_separator
+	display_system_status
     echo
     echo -e "${BOLD}${MAGENTA}🎯 $*${RESET}"
-    print_separator
+    # print_separator
 }
 
 sub_section() {
@@ -164,8 +165,8 @@ fmt_uptime() {
 }	
 
 display_system_status() {
-    echo -e "${BOLD}${MAGENTA}🖥️  SYSTEM OVERVIEW${RESET}"
-    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${RESET}"
+    # echo -e "${BOLD}${MAGENTA}🖥️  SYSTEM OVERVIEW${RESET}"
+    # echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${RESET}"
     
     # Header line with time information
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
@@ -218,11 +219,12 @@ display_system_status() {
 
     # Memory and Disk - Line 2
     local mem_color=$GREEN
-    [[ $MEM_PERCENT -gt 80 ]] && mem_color=$RED
-    [[ $MEM_PERCENT -gt 60 ]] && mem_color=$YELLOW
-    
+    local mem_status_icon="✅"
+    [[ $MEM_PERCENT -gt 80 ]] && mem_status_icon="🚨"  && mem_color=$RED
+    [[ $MEM_PERCENT -gt 60 ]] && mem_status_icon="⚠"  && mem_color=$YELLOW
+	   
 	printf "${YELLOW}%-14s${RESET} %-20s ${mem_color}%-15s${RESET}\n" \
-		"  Memory:" "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PERCENT}%)" "Free: $(get_free_ram_mb)MB"	  
+		"  Memory:" "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PERCENT}%)" "$mem_status_icon $(get_free_ram_mb)MB Available"
 
 	# Disk information
 	local disk_color=$RESET
@@ -261,12 +263,12 @@ else
     [[ $swap_percent -gt 80 ]] && swap_color=$RED
     [[ $swap_percent -gt 60 ]] && swap_color=$YELLOW
     
-    local swap_status="Optimal ✅"
+    local swap_status="✅ Optimal "
     local swap_status_color=$GREEN
     
-    [[ $swap_total -lt $recommended_swap ]] && swap_status="Small ⚠️" && swap_status_color=$YELLOW
-    [[ $swap_percent -gt 80 ]] && swap_status="High ❌" && swap_status_color=$RED
-    [[ $swap_percent -gt 60 ]] && [[ $swap_percent -le 80 ]] && swap_status="Medium ⚠️" && swap_status_color=$YELLOW
+    [[ $swap_total -lt $recommended_swap ]] && swap_status="⚠ Small" && swap_status_color=$YELLOW
+    [[ $swap_percent -gt 80 ]] && swap_status="🚨 High" && swap_status_color=$RED
+    [[ $swap_percent -gt 60 ]] && [[ $swap_percent -le 80 ]] && swap_status="⚠ Medium" && swap_status_color=$YELLOW
     
     # printf "${YELLOW}%-14s${RESET} ${swap_color}%-20s${RESET} ${swap_status_color}%-15s${RESET}\n" \
         # "  Swap:" "${swap_total}MB (${swap_percent}% used)" "$swap_status"
@@ -308,7 +310,7 @@ fi
     fi
 
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${RESET}"
-    echo
+    # echo
 }
 
 #######################################
@@ -676,8 +678,7 @@ network_system_info() {
 }
 
 network_tools_menu() {
-    while true; do
-        banner
+    while true; do        
         section_title "Network Tools & Optimization"
         
         echo -e "${BOLD}${CYAN}Available Network Actions:${RESET}"
@@ -708,12 +709,8 @@ network_tools_menu() {
 #######################################
 swap_management_menu() {
     while true; do
-        banner
         section_title "Swap Management"
-        
-        display_system_status
-        
-        echo -e "${BOLD}${CYAN}Available Swap Actions:${RESET}"
+		
         echo "1) Auto-configure swap (intelligent detection)"
         echo "2) Set custom swap size"
         echo "3) Clean up all swap files and start fresh"
@@ -969,14 +966,10 @@ quick_setup() {
 #######################################
 main_menu() {
     while true; do
-        banner
-        
-        echo -e "${BOLD}${BLUE}🏠 MAIN MENU${RESET}"
-        print_double_separator
-        
-        display_system_status
-        
-        echo -e "${BOLD}${MAGENTA}Available Actions:${RESET}"
+        section_title "🏠 MAIN MENU"
+        # echo -e "${BOLD}${MAGENTA}Available Actions:${RESET}"
+		# echo
+		# echo -e "${BOLD}${BLUE}🏠 MAIN MENU${RESET}"
         echo -e "1) ${CYAN}System Swap Management${RESET}"
         echo -e "2) ${GREEN}Timezone Configuration${RESET}" 
         echo -e "3) ${YELLOW}Install Essential Software${RESET}"
