@@ -8,12 +8,12 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.3.3"
+VERSION="v2.4.0"
 set -euo pipefail
 
+###### Colors and Styles ######
 #######################################
-# Colors and Styles
-#######################################
+
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
@@ -26,27 +26,29 @@ readonly BOLD='\033[1m'
 readonly UNDERLINE='\033[4m'
 readonly RESET='\033[0m'
 
+###### Configuration ######
 #######################################
-# Configuration
-#######################################
+
 readonly SWAPFILE="/swapfile"
 readonly MIN_SAFE_RAM_MB=100
 readonly DEFAULT_TIMEZONE="Asia/Shanghai"
 readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen" "speedtest-cli" "traceroute" "ethtool")
 readonly NETWORK_PACKAGES=("speedtest-cli" "traceroute" "ethtool" "net-tools" "dnsutils" "iptables-persistent")
-readonly LOG_FILE="/root/server-setup-$(date +%Y%m%d-%H%M%S).log"
+LOG_DIR="/root/server-setup-logs/"
+mkdir -p "$LOG_DIR" 
+readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
 
+###### Logging Functions ######
 #######################################
-# Logging Functions
-#######################################
+
 log_info()  { echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}" | tee -a "$LOG_FILE"; }
 log_ok()    { echo -e "${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}" | tee -a "$LOG_FILE"; }
 log_warn()  { echo -e "${YELLOW}${BOLD}[WARN]${RESET} ${YELLOW}$*${RESET}" | tee -a "$LOG_FILE"; }
 log_error() { echo -e "${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}" | tee -a "$LOG_FILE"; }
 
+###### Utility Functions ######
 #######################################
-# Utility Functions
-#######################################
+
 require_root() {
     [[ $EUID -eq 0 ]] || {
         log_error "This script must be run as root"
@@ -82,9 +84,9 @@ sub_section() {
     echo -e "${BOLD}${CYAN}🔹 $*${RESET}"
 }
 
+###### System Information Functions ######
 #######################################
-# System Information Functions
-#######################################
+
 get_ram_mb() {
     grep MemTotal /proc/meminfo | awk '{printf "%.0f", $2/1024}'
 }
@@ -199,9 +201,9 @@ get_swap_status() {
     fi
 }
 
-#######################################
-# Display System Status
-#######################################
+###### Display System Status ######
+###############################################
+
 display_system_status() {
     # Header information
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
@@ -239,9 +241,9 @@ display_bandwidth_info() {
             local vnstat_tx=$(echo "$vnstat_output" | awk -F';' '{print $10}')
             local vnstat_total=$(echo "$vnstat_output" | awk -F';' '{print $11}')
             
-            printf "${YELLOW}%-14s${RESET} %-9s %-9s ${GREEN}%-9s${RESET} ${CYAN}%-9s${RESET} ${MAGENTA}%-9s${RESET}\n" \
+            printf "${YELLOW}%-14s${RESET} %-9s %-9s ${GREEN}%-10s${RESET} ${CYAN}%-10s${RESET} ${MAGENTA}%-10s${RESET}\n" \
                 "" "iface" "Duration" "RX/UL" "TX/DL" "Total"
-            printf "${YELLOW}%-14s${RESET} %-9s %-9s %-9s %-9s %-9s\n" \
+            printf "${YELLOW}%-14s${RESET} %-9s %-9s %-10s %-10s %-10s\n" \
                 "  vnStat $VNSTAT_VERSION" "$INTERFACES" "$vnstat_month" "$vnstat_rx" "$vnstat_tx" "$vnstat_total"
         else
             printf "${YELLOW}%-14s${RESET} ${RED}%-46s${RESET}\n" \
@@ -279,7 +281,7 @@ display_traffic_info() {
         tx=$1;
         if(iface != "lo") {
             total=rx+tx;
-            printf "  %-12s %-9s %-9s %-9s %-9s %-9s\n", "Server", iface, boot_days, human(rx), human(tx), human(total)
+            printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n", "Server", iface, boot_days, human(rx), human(tx), human(total)
         }
     }' | head -3
 }
@@ -307,18 +309,18 @@ display_resource_usage() {
     local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
     local load1=$(echo "$LOAD" | awk -F', ' '{print $1}' | sed 's/,//g')
     local CORES=$(nproc)
-    
+    	
+    # Disk
+    local disk_color=$(get_disk_status "$DISK_PERCENT")
+    printf "${YELLOW}%-14s${RESET} ${disk_color}%-20s${RESET} %s\n" "  Disk:" \
+        "${DISK_USED} / ${DISK_TOTAL} (${DISK_PERCENT})" "$(get_disk_type)"
+		
     # Load Average
     printf "${YELLOW}%-14s${RESET} %-20s %s\n" "  Load Avg:" "$LOAD" "$(get_load_status "$load1" "$CORES")"
     
     # Memory
     printf "${YELLOW}%-14s${RESET} %-20s %s\n" "  Memory:" "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PERCENT}%)" \
-        "$(get_mem_status "$MEM_PERCENT" "$(get_free_ram_mb)")"
-    
-    # Disk
-    local disk_color=$(get_disk_status "$DISK_PERCENT")
-    printf "${YELLOW}%-14s${RESET} ${disk_color}%-20s${RESET} %s\n" "  Disk:" \
-        "${DISK_USED} / ${DISK_TOTAL} (${DISK_PERCENT})" "$(get_disk_type)"
+        "$(get_mem_status "$MEM_PERCENT" "$(get_free_ram_mb)")"    
     
     # Swap
     local swap_total=$(get_swap_total_mb)
@@ -344,17 +346,57 @@ display_network_info() {
     local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
     local q_status=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
     
-    local ipv6_status=$([ -n "$IPV6" ] && echo -e "${GREEN}Available${RESET}" || echo -e "${RED}Disabled${RESET}")
+    local ipv6_status=$([ -n "$IPV6" ] && echo -e "${GREEN}IPv6 ✓${RESET}" || echo -e "${RED}IPv6 ✗${RESET}")
     local bbr_display=$([ "$bbr_status" == "bbr" ] || [ "$bbr_status" == "bbr2" ] && echo -e "${GREEN}${bbr_status^^} ✓${RESET}" || echo -e "${RED}${bbr_status} ✗${RESET}")
     local qdisc_display=$([ "$q_status" == "fq_codel" ] && echo -e "${GREEN}${q_status^^} ✓${RESET}" || echo -e "${RED}${q_status} ✗${RESET}")
-    
-    printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4" "IPv6:" "$ipv6_status"
-    printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  BBR:" "$bbr_display" "QDisc:" "$qdisc_display"
+        
+    printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  BBR+QDisc:" "$bbr_display + $qdisc_display"
+	printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4 ($ipv6_status)"
 }
 
+###### Swap Management Core ######
 #######################################
-# Swap Management Core
-#######################################
+
+swap_management_menu() {
+    while true; do
+		section_title "Swap Management"
+		echo
+        echo "   1) Auto-configure swap (intelligent detection)"
+        echo "   2) Set custom swap size"
+        echo "   3) Clean up all swap files and start fresh"
+        echo "   4) Show Current Swap Details"
+        echo "   0) Back to Main Menu"
+        echo
+        
+        read -rp "   Choose option [0-4]: " choice
+        case $choice in
+            1)
+                local recommended=$(recommended_swap_mb)
+                [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "System has sufficient RAM - no swap recommended"
+                pause
+                ;;
+            2)
+                read -rp "Enter swap size in MB: " custom_size
+                [[ $custom_size =~ ^[0-9]+$ ]] && [[ $custom_size -gt 0 ]] && setup_swap $custom_size || log_error "Invalid size entered"
+                pause
+                ;;
+            3)
+                log_info "Starting fresh swap configuration..."
+                cleanup_existing_swap
+                log_ok "System is now clean. Use option 1 or 2 to configure new swap."
+                pause
+                ;;
+            4)
+                echo -e "${BOLD}Swap Details:${RESET}"
+                free -h; echo; swapon --show 2>/dev/null || log_info "No swap files active"; echo
+                pause
+                ;;
+            0) return ;;
+            *) log_warn "Invalid choice"; pause ;;
+        esac
+    done
+}
+
 cleanup_existing_swap() {
     log_info "Cleaning up existing swap configuration..."
     
@@ -430,9 +472,34 @@ setup_swap() {
     fi
 }
 
+###### Network Tools and Optimization ######
 #######################################
-# Network Tools and Optimization
-#######################################
+
+network_tools_menu() {
+    while true; do        
+        section_title "Network Tools & Optimization"
+        # echo -e "${BOLD}${CYAN}Available Network Actions:${RESET}"
+		echo "   (Modify sysctl.conf)"
+		echo
+        echo "   1) Run Network Diagnostics"
+        echo "   2) Apply Network Optimization (BBR/BBR2)"
+        echo "   3) Restore Network Settings"
+        echo "   4) Install Network Tools"
+        echo "   0) Back to Main Menu"
+        echo
+        
+        read -rp "   Choose option [0-4]: " choice
+        case $choice in
+            1) network_diagnostics; pause ;;
+            2) apply_network_optimization; pause ;;
+            3) restore_network_settings; pause ;;
+            4) install_network_tools; pause ;;
+            0) return ;;
+            *) log_warn "Invalid choice"; pause ;;
+        esac
+    done
+}
+
 install_network_tools() {
     sub_section "Installing Network Tools"
     log_info "Updating package lists..."
@@ -605,83 +672,494 @@ restore_network_settings() {
     fi
 }
 
-network_system_info() {
-    banner
-    section_title "System & Network Overview"
-    display_system_status
+
+###### System Logs Optimization ######
+###############################################
+
+logs_optimization_menu() {
+    section_title "System Logs Optimization"
+	echo "   (Modify journald.conf)"
+	echo
+    echo "   1) Basic Journal Optimization (Recommended)"
+    echo "   2) Custom Journal Limits"
+    echo "   3) Vacuum Logs Only"
+    echo "   4) View Current Log Usage"
+    echo "   5) Remove All Optimization"
+    echo "   0) Back to Main Menu"
+    echo
+    
+    read -rp "   Choose option [0-5]: " choice
+    
+    case $choice in
+        1) optimize_system_logs ;;
+        2) set_custom_journal_limits ;;
+        3) vacuum_logs_only ;;
+        4) view_log_usage ;;
+        5) remove_log_optimization ;;
+        0) return ;;
+        *) log_warn "Invalid choice" ;;
+    esac
     pause
 }
 
-network_tools_menu() {
-    while true; do        
-        section_title "Network Tools & Optimization"
-        echo -e "${BOLD}${CYAN}Available Network Actions:${RESET}"
-        echo "1) Run Network Diagnostics"
-        echo "2) Apply Network Optimization (BBR/BBR2)"
-        echo "3) Restore Network Settings"
-        echo "4) Install Network Tools"
-        echo "5) Show detailed system & network info"
-        echo "0) Back to Main Menu"
-        echo
-        
-        read -rp "Choose option [1-6]: " choice
-        case $choice in
-            1) network_diagnostics; pause ;;
-            2) apply_network_optimization; pause ;;
-            3) restore_network_settings; pause ;;
-            4) install_network_tools; pause ;;
-            5) network_system_info; pause ;;
-            0) return ;;
-            *) log_warn "Invalid choice"; pause ;;
-        esac
+optimize_system_logs() {
+    section_title "System Logs Optimization"
+    
+    echo -e "${BOLD}${GREEN}This will optimize system journal logs and rotation:${RESET}"
+    echo "  ✅ Configure journald limits (SystemMaxUse=100M, RuntimeMaxUse=50M)"
+    # echo "  ✅ Set up log rotation and cleanup cron jobs"
+    echo "  ✅ Vacuum existing journal logs"
+    echo "  ✅ Restart journald service"
+    echo
+    
+    read -rp "Proceed with system logs optimization? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || {
+        log_warn "Logs optimization cancelled"
+        return
+    }
+    
+    # Install required packages
+    sub_section "Step 1: Installing Required Packages"
+    log_info "Installing log optimization tools..."
+    if apt update -y && apt install -y "${LOG_OPTIMIZATION_PACKAGES[@]}"; then
+        log_ok "Log optimization tools installed successfully"
+    else
+        log_error "Failed to install some packages"
+        return 1
+    fi
+    
+    # Configure journald
+    sub_section "Step 2: Configuring Journald Limits"
+    log_info "Configuring journald system limits..."
+    
+    local journald_conf="/etc/systemd/journald.conf"
+    local journald_backup="${journald_conf}.bak-$(date +%Y%m%d-%H%M%S)"
+    
+    # Create backup
+    cp "$journald_conf" "$journald_backup" && log_ok "Backup created: $journald_backup"
+    
+    # Configure journald limits
+    cat <<EOF > "$journald_conf"
+# ======================================================================
+# systemd-journald Configuration (Optimized for VPS 1–4 GB RAM)
+# Clean, safe, annotated — all default options remain commented.
+# version: optimize-Journal v02.conf
+# ======================================================================
+[Journal]
+#############################################
+# STORAGE & COMPRESSION
+#############################################
+# Storage type:
+#   auto       → use persistent if /var/log/journal exists, otherwise volatile
+#   persistent → keep logs on disk
+#   volatile   → keep logs only in RAM (lost at reboot)
+Storage=persistent
+# Compress journal files to reduce disk usage
+Compress=yes
+# Cryptographically seal journal files against tampering
+Seal=yes
+
+#############################################
+# RATE LIMITING 
+# (Prevents log spam from services like V2bX)
+#############################################
+# Allow at most 5000 messages every 30 seconds
+RateLimitIntervalSec=30s
+RateLimitBurst=5000
+
+#############################################
+# DISK USAGE LIMITS (Most important for small VPS)
+#############################################
+# Maximum total disk usage for journald logs (default: unlimited)
+# Recommended: 100–200M for small servers
+SystemMaxUse=150M
+# Always keep at least 50M disk space free
+SystemKeepFree=50M
+# Maximum size of a single journal file
+SystemMaxFileSize=10M
+# Maximum number of journal files allowed (default is 100)
+#SystemMaxFiles=100
+
+#############################################
+# RUNTIME (RAM) LOG STORAGE LIMITS
+#############################################
+# Maximum RAM usage for volatile logs (/run/log/journal)
+RuntimeMaxUse=30M
+RuntimeMaxFileSize=5M
+# Minimum free RAM to keep (uncommon; keep commented)
+#RuntimeKeepFree=
+# Maximum number of RAM journal files
+#RuntimeMaxFiles=100
+
+#############################################
+# RETENTION / ROTATION
+#############################################
+# Maximum total retention time for logs
+MaxRetentionSec=1month
+# Maximum retention per log file
+MaxFileSec=1week
+
+#############################################
+# LOG FORWARDING (Disabled for performance)
+#############################################
+# Don’t forward logs to syslog, kmsg, console, or wall messages
+# Saves CPU/RAM and avoids duplicate logs
+ForwardToSyslog=no
+ForwardToKMsg=no
+ForwardToConsole=no
+ForwardToWall=no
+# Path for forwarding to console (unused when ForwardToConsole=no)
+#TTYPath=/dev/console
+
+#############################################
+# LOG LEVEL LIMITS (Store only important logs)
+#############################################
+# Store logs up to "warning"
+MaxLevelStore=warning
+# Forward logs (if enabled) only up to warning
+MaxLevelSyslog=warning
+# Kernel message logging
+MaxLevelKMsg=notice
+# Console logging level (disabled anyway)
+MaxLevelConsole=notice
+# Emergency broadcast level
+MaxLevelWall=emerg
+
+#############################################
+# MISC OPTIONS (Keep defaults unless needed)
+#############################################
+#SyncIntervalSec=5m
+#SplitMode=uid
+#LineMax=48K
+#ReadKMsg=yes
+#Audit=yes
+
+#############################################
+# END OF CONFIGURATION
+#############################################
+EOF
+
+    log_ok "Journald configuration applied successfully"
+    
+    # Restart journald service
+    sub_section "Step 3: Restarting Journald Service"
+    log_info "Restarting systemd-journald service..."
+    if systemctl restart systemd-journald; then
+        log_ok "Journald service restarted successfully"
+    else
+        log_warn "Failed to restart journald service"
+    fi
+    
+    # Clean up existing journals
+    sub_section "Step 4: Cleaning Up Existing Journals"
+    log_info "Vacuuming journal logs..."
+    
+    # Vacuum by size
+    if journalctl --vacuum-size=50M 2>/dev/null; then
+        log_ok "Journal logs vacuumed to 50MB limit"
+    else
+        log_warn "Failed to vacuum journal by size"
+    fi
+    
+    # Vacuum by time (keep only last 7 days)
+    if journalctl --vacuum-time=7days 2>/dev/null; then
+        log_ok "Journal logs older than 7 days removed"
+    else
+        log_warn "Failed to vacuum journal by time"
+    fi
+    
+    # # Set up cron job for regular cleanup
+    # sub_section "Step 5: Setting Up Automatic Cleanup"
+    # log_info "Configuring automatic log cleanup cron job..."
+    
+    # local cron_job="0 2 * * * /usr/bin/journalctl --vacuum-size=100M --vacuum-time=7days >/dev/null 2>&1"
+    
+    # # Remove existing similar cron jobs
+    # (crontab -l 2>/dev/null | grep -v "journalctl --vacuum" | crontab -) 2>/dev/null
+    
+    # # Add new cron job
+    # (crontab -l 2>/dev/null; echo "$cron_job") | crontab - 2>/dev/null
+    
+    # if crontab -l 2>/dev/null | grep -q "journalctl --vacuum"; then
+        # log_ok "Automatic log cleanup cron job configured"
+    # else
+        # log_warn "Failed to configure cron job"
+    # fi
+    
+    # Optimize specific service logs if they exist
+    sub_section "Step 6: Optimizing Service Logs"
+    local services=("nginx" "apache2" "mysql" "mariadb" "V2bX" "xray" "v2ray")
+    
+    for service in "${services[@]}"; do
+        if systemctl is-active --quiet "$service" 2>/dev/null; then
+            log_info "Optimizing logs for service: $service"
+            
+            # Vacuum service-specific logs
+            journalctl --unit="$service" --vacuum-time=1d 2>/dev/null && \
+            log_ok "Cleaned logs for $service" || \
+            log_warn "No logs found for $service"
+            
+            # Restart service to apply new log settings
+            systemctl restart "$service" 2>/dev/null && \
+            log_ok "Restarted $service" || \
+            log_warn "Could not restart $service"
+        fi
     done
+    
+    # Show final status
+    sub_section "Step 7: Verification"
+    log_info "Current journal usage:"
+    journalctl --disk-usage
+    
+    # echo
+    # log_info "Current cron jobs for log cleanup:"
+    # crontab -l 2>/dev/null | grep -E "journal|vacuum|log" || echo "No log cleanup cron jobs found"
+    
+    echo
+    log_ok "🎉 System logs optimization completed successfully!"
+    echo -e "${GREEN}Journal logs are now optimized with proper limits and cleanup.${RESET}"
 }
 
-#######################################
-# Swap Management Menu
-#######################################
-swap_management_menu() {
-    while true; do
-        section_title "Swap Management"
-        echo "1) Auto-configure swap (intelligent detection)"
-        echo "2) Set custom swap size"
-        echo "3) Clean up all swap files and start fresh"
-        echo "4) Show Current Swap Details"
-        echo "0) Back to Main Menu"
-        echo
-        
-        read -rp "Choose option [1-5]: " choice
-        case $choice in
-            1)
-                local recommended=$(recommended_swap_mb)
-                [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "System has sufficient RAM - no swap recommended"
-                pause
-                ;;
-            2)
-                read -rp "Enter swap size in MB: " custom_size
-                [[ $custom_size =~ ^[0-9]+$ ]] && [[ $custom_size -gt 0 ]] && setup_swap $custom_size || log_error "Invalid size entered"
-                pause
-                ;;
-            3)
-                log_info "Starting fresh swap configuration..."
-                cleanup_existing_swap
-                log_ok "System is now clean. Use option 1 or 2 to configure new swap."
-                pause
-                ;;
-            4)
-                echo -e "${BOLD}Swap Details:${RESET}"
-                free -h; echo; swapon --show 2>/dev/null || log_info "No swap files active"; echo
-                pause
-                ;;
-            0) return ;;
-            *) log_warn "Invalid choice"; pause ;;
-        esac
-    done
+set_custom_journal_limits() {
+    section_title "Custom Journal Limits"
+    
+    echo -e "${YELLOW}Enter custom journal limits (leave empty for default):${RESET}"
+    read -rp "SystemMaxUse (default: 150M): " system_max
+    read -rp "RuntimeMaxUse (default: 30M): " runtime_max
+    read -rp "SystemMaxFileSize (default: 5M): " file_size
+    read -rp "MaxRetentionSec (default: 1month): " retention
+    
+    system_max=${system_max:-"150M"}
+    runtime_max=${runtime_max:-"30M"}
+    file_size=${file_size:-"5M"}
+    retention=${retention:-"1month"}
+    
+    log_info "Applying custom journal limits..."
+    
+    local journald_conf="/etc/systemd/journald.conf"
+    local backup="${journald_conf}.bak-$(date +%Y%m%d-%H%M%S)"
+    cp "$journald_conf" "$backup"
+    
+    # Preserve existing config and update only specific values
+    grep -v -E "^(SystemMaxUse|RuntimeMaxUse|SystemMaxFileSize|MaxRetentionSec)=" "$journald_conf" > "${journald_conf}.tmp"
+    
+    cat <<EOF >> "${journald_conf}.tmp"
+SystemMaxUse=${system_max}
+RuntimeMaxUse=${runtime_max}
+SystemMaxFileSize=${file_size}
+MaxRetentionSec=${retention}
+EOF
+
+    mv "${journald_conf}.tmp" "$journald_conf"
+    systemctl restart systemd-journald
+    
+    log_ok "Custom journal limits applied successfully"
 }
 
+vacuum_logs_only() {
+    section_title "Vacuum System Logs"
+    
+    # Show current disk usage before vacuum
+    echo -e "${GREEN}Current Journal Disk Usage:${RESET}"
+    local before_usage=$(journalctl --disk-usage 2>/dev/null | grep -o '[0-9.]\+[A-Z]' | head -1)
+    local before_size=$(du -sh /var/log/journal 2>/dev/null | awk '{print $1}')
+    
+    printf "  ${CYAN}%-25s${RESET} ${YELLOW}%8s${RESET}\n" "Journal files:" "$before_usage"
+    printf "  ${CYAN}%-25s${RESET} ${YELLOW}%8s${RESET}\n" "Disk usage:" "$before_size"
+    echo
+    
+    echo -e "${YELLOW}Select vacuum option:${RESET}"
+    echo "1) Vacuum to 50M size limit"
+    echo "2) Vacuum logs older than 7 days"
+    echo "3) Vacuum both size and time"
+    echo "4) Custom vacuum parameters"
+    echo "0) Cancel"
+    echo
+    
+    read -rp "Choose option [1-5]: " vacuum_choice
+    
+    case $vacuum_choice in
+        1)
+            echo -e "\n${CYAN}Vacuuming logs to 50MB size limit...${RESET}"
+            if journalctl --vacuum-size=50M 2>/dev/null; then
+                show_vacuum_results "$before_usage" "$before_size"
+                log_ok "Logs vacuumed to 50MB limit"
+            else
+                log_error "Failed to vacuum logs"
+            fi
+            ;;
+        2)
+            echo -e "\n${CYAN}Vacuuming logs older than 7 days...${RESET}"
+            if journalctl --vacuum-time=7days 2>/dev/null; then
+                show_vacuum_results "$before_usage" "$before_size"
+                log_ok "Logs older than 7 days removed"
+            else
+                log_error "Failed to vacuum logs"
+            fi
+            ;;
+        3)
+            echo -e "\n${CYAN}Vacuuming logs by size and time...${RESET}"
+            if journalctl --vacuum-size=50M --vacuum-time=7days 2>/dev/null; then
+                show_vacuum_results "$before_usage" "$before_size"
+                log_ok "Logs vacuumed by both size and time"
+            else
+                log_error "Failed to vacuum logs"
+            fi
+            ;;
+        4)
+            custom_vacuum_parameters "$before_usage" "$before_size"
+            ;;
+        0)
+            log_warn "Vacuum operation cancelled"
+            ;;
+        *)
+            log_warn "Invalid choice"
+            ;;
+    esac
+}
+
+show_vacuum_results() {
+    local before_usage="$1"
+    local before_size="$2"
+    
+    echo
+    echo -e "${GREEN}Vacuum Results:${RESET}"
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${RESET}"
+    
+    # Get after usage
+    local after_usage=$(journalctl --disk-usage 2>/dev/null | grep -o '[0-9.]\+[A-Z]' | head -1)
+    local after_size=$(du -sh /var/log/journal 2>/dev/null | awk '{print $1}')
+    
+    # Calculate savings
+    local usage_saved=$(calculate_savings "$before_usage" "$after_usage")
+    local size_saved=$(calculate_savings "$before_size" "$after_size")
+    
+    printf "${CYAN}║${RESET} ${YELLOW}%-20s${RESET} ${GREEN}%8s${RESET} ${CYAN}→${RESET} ${GREEN}%8s${RESET} ${CYAN}(${GREEN}%s saved${RESET}${CYAN})${RESET} %15s ${CYAN}║${RESET}\n" \
+        "Journal files:" "$before_usage" "$after_usage" "$usage_saved" ""
+    
+    printf "${CYAN}║${RESET} ${YELLOW}%-20s${RESET} ${GREEN}%8s${RESET} ${CYAN}→${RESET} ${GREEN}%8s${RESET} ${CYAN}(${GREEN}%s saved${RESET}${CYAN})${RESET} %15s ${CYAN}║${RESET}\n" \
+        "Disk usage:" "$before_size" "$after_size" "$size_saved" ""
+    
+    # Show detailed breakdown
+    local journal_files=$(find /var/log/journal -name "*.journal" 2>/dev/null | wc -l)
+    local largest_file=$(find /var/log/journal -name "*.journal" -exec du -h {} \; 2>/dev/null | sort -hr | head -1 | awk '{print $1}')
+    
+    printf "${CYAN}║${RESET} ${YELLOW}%-20s${RESET} ${GREEN}%8d files${RESET} %30s ${CYAN}║${RESET}\n" \
+        "Journal files count:" "$journal_files" ""
+    
+    if [[ -n "$largest_file" ]]; then
+        printf "${CYAN}║${RESET} ${YELLOW}%-20s${RESET} ${GREEN}%8s${RESET} %30s ${CYAN}║${RESET}\n" \
+            "Largest file:" "$largest_file" ""
+    fi
+    
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${RESET}"
+    echo
+}
+
+calculate_savings() {
+    local before="$1"
+    local after="$2"
+    
+    # Extract numeric value and unit
+    local before_num=$(echo "$before" | grep -o '^[0-9.]\+')
+    local before_unit=$(echo "$before" | grep -o '[A-Z]\+$')
+    local after_num=$(echo "$after" | grep -o '^[0-9.]\+')
+    local after_unit=$(echo "$after" | grep -o '[A-Z]\+$')
+    
+    # Convert to same unit (simplified conversion)
+    if [[ "$before_unit" == "G" ]] && [[ "$after_unit" == "M" ]]; then
+        before_num=$(echo "$before_num * 1024" | bc -l 2>/dev/null || echo "$before_num")
+        before_unit="M"
+    elif [[ "$before_unit" == "M" ]] && [[ "$after_unit" == "G" ]]; then
+        after_num=$(echo "$after_num * 1024" | bc -l 2>/dev/null || echo "$after_num")
+        after_unit="M"
+    fi
+    
+    # Calculate savings
+    if [[ "$before_unit" == "$after_unit" ]] && command -v bc >/dev/null 2>&1; then
+        local saved=$(echo "$before_num - $after_num" | bc -l 2>/dev/null)
+        if (( $(echo "$saved > 0" | bc -l) )); then
+            printf "%.1f%s" "$saved" "$before_unit"
+        else
+            echo "0$before_unit"
+        fi
+    else
+        echo "N/A"
+    fi
+}
+
+custom_vacuum_parameters() {
+    local before_usage="$1"
+    local before_size="$2"
+    
+    echo -e "\n${YELLOW}Custom Vacuum Parameters:${RESET}"
+    read -rp "Size limit (e.g., 100M, 1G): " custom_size
+    read -rp "Time limit (e.g., 7days, 1month, 2weeks): " custom_time
+    
+    [[ -z "$custom_size" && -z "$custom_time" ]] && {
+        log_warn "No parameters specified"
+        return
+    }
+    
+    local vacuum_cmd="journalctl"
+    [[ -n "$custom_size" ]] && vacuum_cmd="$vacuum_cmd --vacuum-size=$custom_size"
+    [[ -n "$custom_time" ]] && vacuum_cmd="$vacuum_cmd --vacuum-time=$custom_time"
+    
+    echo -e "\n${CYAN}Executing: $vacuum_cmd${RESET}"
+    
+    if eval "$vacuum_cmd" 2>/dev/null; then
+        show_vacuum_results "$before_usage" "$before_size"
+        log_ok "Custom vacuum completed successfully"
+    else
+        log_error "Failed to execute custom vacuum"
+    fi
+}
+
+view_log_usage() {
+    section_title "Current Log Usage"
+    
+    echo -e "${GREEN}Journal Disk Usage:${RESET}"
+    journalctl --disk-usage
+    
+    # echo -e "\n${GREEN}Largest Journal Files:${RESET}"
+    # find /var/log/journal -name "*.journal" -exec du -h {} \; 2>/dev/null | sort -hr | head -10
+    
+    echo -e "\n${GREEN}Current Journal Configuration:${RESET}"
+    grep -E "^(SystemMaxUse|RuntimeMaxUse|SystemMaxFileSize|MaxRetentionSec)=" /etc/systemd/journald.conf 2>/dev/null || echo "Using default settings"
+    
+    # echo -e "\n${GREEN}Log Cleanup Cron Jobs:${RESET}"
+    # crontab -l 2>/dev/null | grep -E "journal|vacuum|log" || echo "No log cleanup cron jobs configured"
+}
+
+remove_log_optimization() {
+    section_title "Remove Log Optimization"
+    
+    read -rp "Remove all log optimization settings? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || {
+        log_warn "Operation cancelled"
+        return
+    }
+    
+    # # Remove cron jobs
+    # (crontab -l 2>/dev/null | grep -v -E "journal|vacuum|log" | crontab -) 2>/dev/null
+    # log_ok "Log cleanup cron jobs removed"
+    
+    # Restore default journald config
+    local journald_conf="/etc/systemd/journald.conf"
+    if [[ -f "${journald_conf}.original" ]]; then
+        cp "${journald_conf}.original" "$journald_conf"
+        log_ok "Original journald configuration restored"
+    else
+        log_warn "No original backup found, keeping current configuration"
+    fi
+    
+    systemctl restart systemd-journald
+    log_ok "Journald service restarted with default settings"
+}
+
+###### Timezone Configuration ######
 #######################################
-# Timezone Configuration
-#######################################
+
 configure_timezone() {
     section_title "Timezone Configuration"
     local current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")
@@ -694,12 +1172,12 @@ configure_timezone() {
     )
     
     for i in "${!timezones[@]}"; do
-        echo "$((i+1))) ${timezones[$i]}"
+        echo "   $((i+1))) ${timezones[$i]}"
     done
-    echo "0) Cancel"
+    echo "   0) Cancel"
     echo
     
-    read -rp "Choose option [1-8]: " tz_choice
+    read -rp "   Choose option [0-7]: " tz_choice
     case $tz_choice in
         [1-6]) local new_tz="${timezones[$((tz_choice-1))]}" ;;
         7) read -rp "Enter timezone: " new_tz; [[ -z "$new_tz" ]] && { log_warn "No timezone entered"; return; } ;;
@@ -713,21 +1191,22 @@ configure_timezone() {
     pause
 }
 
+###### Package Management ######
 #######################################
-# Package Management
-#######################################
+
 install_packages() {
     section_title "Package Installation"
-    echo -e "${BOLD}Select packages to install:${RESET}"
-    echo "1) Essential tools (curl, wget, nano, htop, vnstat)"
-    echo "2) Development tools (git, unzip, screen)"
-    echo "3) Network tools (speedtest-cli, traceroute, ethtool, net-tools)"
-    echo "4) All recommended packages"
-    echo "5) Custom selection"
-    echo "0) Cancel"
+	echo
+    # echo -e "${BOLD}Select packages to install:${RESET}"
+    echo "   1) Essential tools (curl, wget, nano, htop, vnstat)"
+    echo "   2) Development tools (git, unzip, screen)"
+    echo "   3) Network tools (speedtest-cli, traceroute, ethtool, net-tools)"
+    echo "   4) All recommended packages"
+    echo "   5) Custom selection"
+    echo "   0) Cancel"
     echo
     
-    read -rp "Choose option [1-6]: " pkg_choice
+    read -rp "   Choose option [0-5]: " pkg_choice
     case $pkg_choice in
         1) local packages=("curl" "wget" "nano" "htop" "vnstat") ;;
         2) local packages=("git" "unzip" "screen") ;;
@@ -752,9 +1231,9 @@ install_packages() {
     pause
 }
 
+###### Quick Setup ######
 #######################################
-# Quick Setup
-#######################################
+
 quick_setup() {
     section_title "Quick Server Setup"
     echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
@@ -790,36 +1269,46 @@ quick_setup() {
     # Network Optimization
     sub_section "Step 4: Network Optimization"
     apply_network_optimization
+	
+	# Step 5: System Logs Optimization
+    sub_section "Step 5: System Logs Optimization"
+    optimize_system_logs
     
     log_ok "🎉 Quick setup completed successfully!"
     echo -e "${GREEN}Your server is now optimized and ready for use.${RESET}"
     pause
 }
 
+###### Main Menu ######
 #######################################
-# Main Menu
-#######################################
+
 main_menu() {
     while true; do
-        section_title "🏠 MAIN MENU"
-        echo -e "1) ${CYAN}System Swap Management${RESET}"
-        echo -e "2) ${GREEN}Timezone Configuration${RESET}" 
-        echo -e "3) ${YELLOW}Install Essential Software${RESET}"
-        echo -e "4) ${BLUE}Network Diagnostics & Optimization${RESET}"
-        echo -e "5) ${ORANGE}Quick Setup${RESET} (Recommended for new servers)"
-        echo -e "0) ${RED}Exit${RESET}"
+        banner
+		display_system_status
+		echo
+		echo -e "${BOLD}${MAGENTA}🏠 MAIN MENU${RESET}"
+		echo
+        echo -e "   1) ${ORANGE}Quick Setup${RESET} (Recommended for new servers)"
+        echo -e "   2) ${GREEN}Timezone Configuration${RESET}" 
+        echo -e "   3) ${YELLOW}Install Essential Software${RESET}"
+        echo -e "   4) ${CYAN}System Swap Management${RESET}"
+        echo -e "   5) ${BLUE}Network Optimization${RESET}"
+		echo -e "   6) ${PURPLE}Logs Optimization${RESET}"
+        echo -e "   0) ${RED}Exit${RESET}"
         echo
         
-        read -rp "Choose option [1-6]: " choice
+        read -rp "   Choose option [1-6]: " choice
         case $choice in
-            1) swap_management_menu ;;
+            1) quick_setup ;;
             2) configure_timezone ;;
             3) install_packages ;;
-            4) network_tools_menu ;;
-            5) quick_setup ;;
+            4) swap_management_menu ;;
+            5) network_tools_menu ;;
+			6) logs_optimization_menu ;;
             0)
                 echo
-                log_ok "Thank you for using Server Setup Essentials! 👋"
+                log_ok "   Thank you for using Server Setup Essentials! 👋"
                 echo -e "${GREEN}Log file: ${LOG_FILE}${RESET}"
                 exit 0
                 ;;
@@ -828,9 +1317,9 @@ main_menu() {
     done
 }
 
+###### Main Execution ######
 #######################################
-# Main Execution
-#######################################
+
 main() {
     require_root
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
