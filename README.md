@@ -12,6 +12,19 @@ Perfect for new VPS / nodes running things like sing-box, XrayR, V2bX, etc.
 
 ---
 
+## RUN
+```
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/server-setup-essentials.sh | sed 's/\r$//')
+```
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh | sed 's/\r$//')
+```
+```
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh | sed 's/\r$//')
+```
+
+---
+
 ## Features
 
 ### 🧠 Smart & Safe Swap Management
