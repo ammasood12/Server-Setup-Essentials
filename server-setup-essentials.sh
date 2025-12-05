@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.0"
+VERSION="v2.4.1"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -34,8 +34,8 @@ readonly MIN_SAFE_RAM_MB=100
 readonly DEFAULT_TIMEZONE="Asia/Shanghai"
 # readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen" "speedtest-cli" "traceroute" "ethtool")
 # readonly NETWORK_PACKAGES=("speedtest-cli" "traceroute" "ethtool" "net-tools" "dnsutils" "iptables-persistent")
-readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen" "speedtest-cli" "traceroute" "ethtool")
-readonly NETWORK_PACKAGES=("speedtest-cli" "traceroute" "ethtool" "net-tools" "dnsutils" "iptables-persistent")
+readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat")
+readonly NETWORK_PACKAGES=("vnstat")
 LOG_DIR="/root/server-setup-logs/"
 mkdir -p "$LOG_DIR" 
 readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
@@ -629,6 +629,12 @@ net.ipv4.ip_forward = 1
 ######## Anti-Route Conflicts ########
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
+
+######## Disable IPv6 ########
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+
 
 ######## File Handles ########
 fs.file-max = 1000000
