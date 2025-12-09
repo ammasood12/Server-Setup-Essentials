@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.1"
+VERSION="v2.4.2"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -155,11 +155,11 @@ fmt_uptime() {
 get_load_status() {
     local load_value=$1 cores=$2
     if (( $(echo "$load_value > $cores * 2" | bc -l 2>/dev/null) )); then
-        echo -e "$RED❌ High Load$RESET"
+        echo -e "${RED}❌ High Load$RESET"
     elif (( $(echo "$load_value > $cores" | bc -l 2>/dev/null) )); then
-        echo -e "$YELLOW⚠️ Medium Load$RESET"
+        echo -e "${YELLOW}⚠️ Medium Load$RESET"
     else
-        echo -e "$GREEN✅ Optimal Load$RESET"
+        echo -e "${GREEN}✅ Optimal Load$RESET"
     fi
 }
 
@@ -184,9 +184,9 @@ get_disk_status() {
 get_disk_type() {
     local disk_type_value=$(lsblk -d -o ROTA 2>/dev/null | awk 'NR==2 {print $1}')
     case "$disk_type_value" in
-        "0") echo -e "$GREEN🚀 SSD$RESET" ;;
-        "1") echo -e "$BLUE💾 HDD$RESET" ;;
-        *) echo -e "$YELLOW💿 Unknown$RESET" ;;
+        "0") echo -e "${GREEN}🚀 SSD$RESET" ;;
+        "1") echo -e "${BLUE}💾 HDD$RESET" ;;
+        *) echo -e "${YELLOW}💿 Unknown$RESET" ;;
     esac
 }
 
