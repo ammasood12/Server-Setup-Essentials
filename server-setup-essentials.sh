@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.3"
+VERSION="v2.4.2"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -344,50 +344,17 @@ display_resource_usage() {
 
 display_network_info() {
     local IPV4=$(hostname -I | awk '{print $1}')
-    local IPV6=$(ip -6 addr show scope global 2>/dev/null | awk '/inet6/ {print $2; exit}' | cut -d'/' -f1)
-
-    # Kernel IPv6 availability
-    local ipv6_kernel=$(lsmod 2>/dev/null | grep -w ipv6)
-    # Sysctl enable/disable status
-    local ipv6_disabled=$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null)
-
-    # Determine IPv6 status
-    if [[ -z "$ipv6_kernel" ]]; then
-        ipv6_status="${RED}IPv6 Unsupported ✗${RESET}"
-    else
-        if [[ "$ipv6_disabled" == "1" ]]; then
-            ipv6_status="${YELLOW}IPv6 Disabled ⚠${RESET}"
-        else
-            if [[ -n "$IPV6" ]]; then
-                ipv6_status="${GREEN}IPv6 Active ✓ ($IPV6)${RESET}"
-            else
-                ipv6_status="${RED}IPv6 No Address ✗${RESET}"
-            fi
-        fi
-    fi
-
-    # BBR & Qdisc
+    local IPV6=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
     local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
     local q_status=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
-
-    local bbr_display=$([[ "$bbr_status" == "bbr" || "$bbr_status" == "bbr2" ]] \
-        && echo -e "${GREEN}${bbr_status^^} ✓${RESET}" \
-        || echo -e "${RED}${bbr_status} ✗${RESET}")
-
-    local qdisc_display=$([[ "$q_status" == "fq_codel" ]] \
-        && echo -e "${GREEN}${q_status^^} ✓${RESET}" \
-        || echo -e "${RED}${q_status} ✗${RESET}")
-
-    printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" \
-        "  BBR+QDisc:" "$bbr_display + $qdisc_display"
-
-    printf "${YELLOW}%-14s${RESET} %-20s\n" \
-        "  IPv4:" "$IPV4"
-
-    printf "${YELLOW}%-14s${RESET} %s\n" \
-        "  IPv6:" "$ipv6_status"
+    
+    local ipv6_status=$([ -n "$IPV6" ] && echo -e "${GREEN}IPv6 ✓${RESET}" || echo -e "${RED}IPv6 ✗${RESET}")
+    local bbr_display=$([ "$bbr_status" == "bbr" ] || [ "$bbr_status" == "bbr2" ] && echo -e "${GREEN}${bbr_status^^} ✓${RESET}" || echo -e "${RED}${bbr_status} ✗${RESET}")
+    local qdisc_display=$([ "$q_status" == "fq_codel" ] && echo -e "${GREEN}${q_status^^} ✓${RESET}" || echo -e "${RED}${q_status} ✗${RESET}")
+        
+    printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  BBR+QDisc:" "$bbr_display + $qdisc_display"
+	printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4 ($ipv6_status)"
 }
-
 
 ###### Swap Management Core ######
 #######################################
