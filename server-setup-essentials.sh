@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.2"
+VERSION="v2.4.3"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -823,7 +823,8 @@ ForwardToWall=no
 # LOG LEVEL LIMITS (Store only important logs)
 #############################################
 # Store logs up to "warning"
-MaxLevelStore=warning
+# changed from warning to info, warning don't store v2bx activity log
+MaxLevelStore=info
 # Forward logs (if enabled) only up to warning
 MaxLevelSyslog=warning
 # Kernel message logging
