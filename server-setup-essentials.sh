@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.3"
+VERSION="v2.4.4"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -751,7 +751,7 @@ optimize_system_logs() {
 # ======================================================================
 # systemd-journald Configuration (Optimized for VPS 1–4 GB RAM)
 # Clean, safe, annotated — all default options remain commented.
-# version: optimize-Journal v02.conf
+# version: optimize-Journal v03.conf
 # ======================================================================
 [Journal]
 #############################################
@@ -780,7 +780,7 @@ RateLimitBurst=5000
 #############################################
 # Maximum total disk usage for journald logs (default: unlimited)
 # Recommended: 100–200M for small servers
-SystemMaxUse=150M
+SystemMaxUse=300M
 # Always keep at least 50M disk space free
 SystemKeepFree=50M
 # Maximum size of a single journal file
@@ -805,7 +805,7 @@ RuntimeMaxFileSize=5M
 # Maximum total retention time for logs
 MaxRetentionSec=1month
 # Maximum retention per log file
-MaxFileSec=1week
+MaxFileSec=1month
 
 #############################################
 # LOG FORWARDING (Disabled for performance)
