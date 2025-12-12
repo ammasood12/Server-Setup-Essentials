@@ -864,8 +864,8 @@ EOF
     log_info "Vacuuming journal logs..."
     
     # Vacuum by size
-    if journalctl --vacuum-size=200M 2>/dev/null; then
-        log_ok "Journal logs vacuumed to 200MB limit"
+    if journalctl --vacuum-size=300M 2>/dev/null; then
+        log_ok "Journal logs vacuumed to 300MB limit"
     else
         log_warn "Failed to vacuum journal by size"
     fi
@@ -905,7 +905,7 @@ EOF
             
             # Vacuum service-specific logs
             journalctl --unit="$service" --vacuum-time=15days 2>/dev/null && \
-            log_ok "Cleaned logs for $service" || \
+            log_ok "Cleaned older than 15 days logs for $service" || \
             log_warn "No logs found for $service"
             
             # Restart service to apply new log settings
