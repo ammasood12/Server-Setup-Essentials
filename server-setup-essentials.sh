@@ -864,15 +864,15 @@ EOF
     log_info "Vacuuming journal logs..."
     
     # Vacuum by size
-    if journalctl --vacuum-size=50M 2>/dev/null; then
-        log_ok "Journal logs vacuumed to 50MB limit"
+    if journalctl --vacuum-size=200M 2>/dev/null; then
+        log_ok "Journal logs vacuumed to 200MB limit"
     else
         log_warn "Failed to vacuum journal by size"
     fi
     
     # Vacuum by time (keep only last 7 days)
-    if journalctl --vacuum-time=7days 2>/dev/null; then
-        log_ok "Journal logs older than 7 days removed"
+    if journalctl --vacuum-time=15days 2>/dev/null; then
+        log_ok "Journal logs older than 15 days removed"
     else
         log_warn "Failed to vacuum journal by time"
     fi
@@ -904,7 +904,7 @@ EOF
             log_info "Optimizing logs for service: $service"
             
             # Vacuum service-specific logs
-            journalctl --unit="$service" --vacuum-time=1d 2>/dev/null && \
+            journalctl --unit="$service" --vacuum-time=15days 2>/dev/null && \
             log_ok "Cleaned logs for $service" || \
             log_warn "No logs found for $service"
             
