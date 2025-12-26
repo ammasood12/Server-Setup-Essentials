@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.4"
+VERSION="v2.4.5"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1319,7 +1319,7 @@ install_packages() {
 ###### Quick Setup ######
 #######################################
 
-quick_setup() {
+quick_setup_full() {
     section_title "Quick Server Setup"
     echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
     echo "  ✅ Clean up existing swap files/partitions"
@@ -1327,6 +1327,7 @@ quick_setup() {
     echo "  ✅ Set timezone to Asia/Shanghai" 
     echo "  ✅ Install essential packages"
     echo "  ✅ Apply network optimization (BBR/BBR2)"
+    echo "  ✅ Apply system logs optimization"
     echo -e "${YELLOW}Note: This is recommended for new servers${RESET}"
     echo
     
@@ -1364,6 +1365,40 @@ quick_setup() {
     pause
 }
 
+quick_setup_partial() {
+    section_title "Quick Server Setup"
+    echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
+    echo "  ✅ Clean up existing swap files/partitions"
+    echo "  ✅ Auto-configure optimal swap (if needed)"
+    echo "  ✅ Install essential packages"
+    echo "  ✅ Apply network optimization (BBR/BBR2)"
+    echo -e "${YELLOW}Note: This is recommended for new servers${RESET}"
+    echo
+    
+    read -rp "Proceed with quick setup? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Quick setup cancelled"; return; }
+    
+    # Swap configuration
+    sub_section "Step 1: Swap Configuration"
+    cleanup_existing_swap
+    local recommended=$(recommended_swap_mb)
+    [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "No swap configuration needed"
+        
+    # Packages
+    sub_section "Step 2: Package Installation"
+    apt update -y && apt install -y "${BASE_PACKAGES[@]}" && \
+        log_ok "Packages installed successfully" || \
+        log_warn "Some packages failed to install"
+    
+    # Network Optimization
+    sub_section "Step 3: Network Optimization"
+    apply_network_optimization	
+    
+    log_ok "🎉 Quick setup completed successfully!"
+    echo -e "${GREEN}Your server is now optimized and ready for use.${RESET}"
+    pause
+}
+
 ###### Main Menu ######
 #######################################
 
@@ -1374,23 +1409,25 @@ main_menu() {
 		echo
 		echo -e "${BOLD}${MAGENTA}🏠 MAIN MENU${RESET}"
 		echo
-        echo -e "   1) ${ORANGE}Quick Setup${RESET} (Recommended for new servers)"
-        echo -e "   2) ${GREEN}Timezone Configuration${RESET}" 
-        echo -e "   3) ${YELLOW}Install Essential Software${RESET}"
-        echo -e "   4) ${CYAN}System Swap Management${RESET}"
-        echo -e "   5) ${BLUE}Network Optimization${RESET}"
-		echo -e "   6) ${PURPLE}Logs Optimization${RESET}"
+        echo -e "   1) ${ORANGE}Quick Setup${RESET} (Full)"
+        echo -e "   2) ${ORANGE}Quick Setup${RESET} (Software+Swap+Network)"
+        echo -e "   3) ${GREEN}Timezone Configuration${RESET}" 
+        echo -e "   4) ${YELLOW}Install Essential Software${RESET}"
+        echo -e "   5) ${CYAN}System Swap Management${RESET}"
+        echo -e "   6) ${BLUE}Network Optimization${RESET}"
+		echo -e "   7) ${PURPLE}Logs Optimization${RESET}"
         echo -e "   0) ${RED}Exit${RESET}"
         echo
         
         read -rp "   Choose option [1-6]: " choice
         case $choice in
-            1) quick_setup ;;
-            2) configure_timezone ;;
-            3) install_packages ;;
-            4) swap_management_menu ;;
-            5) network_tools_menu ;;
-			6) logs_optimization_menu ;;
+            1) quick_setup_full ;;
+            1) quick_setup_partial ;;
+            3) configure_timezone ;;
+            4) install_packages ;;
+            5) swap_management_menu ;;
+            6) network_tools_menu ;;
+			7) logs_optimization_menu ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
