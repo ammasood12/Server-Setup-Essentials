@@ -1422,7 +1422,7 @@ main_menu() {
         read -rp "   Choose option [1-6]: " choice
         case $choice in
             1) quick_setup_full ;;
-            1) quick_setup_partial ;;
+            2) quick_setup_partial ;;
             3) configure_timezone ;;
             4) install_packages ;;
             5) swap_management_menu ;;
@@ -1458,3 +1458,4 @@ main() {
 }
 
 main "$@"
+
