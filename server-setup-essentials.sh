@@ -195,10 +195,10 @@ get_swap_status() {
     if [[ $total -eq 0 ]]; then
         echo "$RED❌ Not configured$RESET"
     else
-        local color=$RESET status="✅ Optimal usage"
+        local color=$GREEN status="✅ Optimal usage"
         [[ $percent -gt 80 ]] && { color=$RED; status="🚨 High usage"; }
         [[ $percent -gt 60 ]] && [[ $percent -le 80 ]] && { color=$YELLOW; status="⚠ Medium usage"; }
-        [[ $total -lt $recommended ]] && { color=$YELLOW; status="⚠ Small usage"; }
+        [[ $total -lt $recommended ]] && { color=$GREEN; status="✅ Small usage"; }
         echo -e "$color$status$RESET"
     fi
 }
