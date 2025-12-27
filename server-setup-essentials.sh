@@ -314,14 +314,14 @@ display_resource_usage() {
     	
     # Disk
     local disk_color=$(get_disk_status "$DISK_PERCENT")
-    printf "${YELLOW}%-16s${RESET} ${disk_color}%-20s${RESET} %s\n" "  Disk:" \
+    printf "${YELLOW}%-14s${RESET} ${disk_color}%-22s${RESET} %s\n" "  Disk:" \
         "${DISK_USED} / ${DISK_TOTAL} (${DISK_PERCENT})" "$(get_disk_type)"
 		
     # Load Average
-    printf "${YELLOW}%-16s${RESET} %-20s %s\n" "  Load Avg:" "$LOAD" "$(get_load_status "$load1" "$CORES")"
+    printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Load Avg:" "$LOAD" "$(get_load_status "$load1" "$CORES")"
     
     # Memory
-    printf "${YELLOW}%-16s${RESET} %-20s %s\n" "  Memory:" "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PERCENT}%)" \
+    printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Memory:" "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PERCENT}%)" \
         "$(get_mem_status "$MEM_PERCENT" "$(get_free_ram_mb)")"    
     
     # Swap
@@ -332,12 +332,12 @@ display_resource_usage() {
     local recommended_swap=$(recommended_swap_mb)
     
     if [[ $swap_total -eq 0 ]]; then
-        printf "${YELLOW}%-16s${RESET} ${RED}%-20s${RESET} ${RED}%s${RESET}\n" "  Swap:" "Not configured" "❌"
+        printf "${YELLOW}%-14s${RESET} ${RED}%-22s${RESET} ${RED}%s${RESET}\n" "  Swap:" "Not configured" "❌"
     else
         local swap_color=$RESET
         [[ $swap_percent -gt 80 ]] && swap_color=$RED
         [[ $swap_percent -gt 60 ]] && swap_color=$YELLOW
-        printf "${YELLOW}%-16s${RESET} ${swap_color}%-20s${RESET} %s\n" "  Swap:" \
+        printf "${YELLOW}%-14s${RESET} ${swap_color}%-22s${RESET} %s\n" "  Swap:" \
             "${swap_used}MB / ${swap_total}MB (${swap_percent}%)" "$(get_swap_status "$swap_total" "$swap_used" "$swap_percent" "$recommended_swap")"
     fi
 }
