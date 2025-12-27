@@ -1464,7 +1464,7 @@ main_menu() {
             5) network_tools_menu ;;
 			6) logs_optimization_menu ;;
             7) configure_timezone ;;
-            7) configure_hostname ;;
+            8) configure_hostname ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
