@@ -1252,16 +1252,16 @@ configure_hostname() {
     echo -e "   Current Hostname: ${CYAN}${current_hostname}${RESET}"
     echo
 
-    # Ask if user wants to change hostname
-    read -rp "   Do you want to change the hostname? (y/N): " change_choice
+    # # Ask if user wants to change hostname
+    # read -rp "   Do you want to change the hostname? (y/N): " change_choice
     
-    if [[ ! "$change_choice" =~ ^[Yy]$ ]]; then
-        log_warn "Hostname change cancelled."
-        return
-    fi
+    # if [[ ! "$change_choice" =~ ^[Yy]$ ]]; then
+        # log_warn "Hostname change cancelled."
+        # return
+    # fi
     
     # Ask for new hostname
-    read -rp "Enter new hostname: " new_hostname
+    read -rp "   Enter new hostname: " new_hostname
     
     # Validate input
     if [[ -z "$new_hostname" ]]; then
