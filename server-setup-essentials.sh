@@ -165,7 +165,7 @@ get_load_status() {
 
 get_mem_status() {
     local percent=$1 free_mb=$2
-    local status_icon="✅" color=$RESET
+    local status_icon="✅" color=$GREEN
     
     [[ $percent -gt 80 ]] && { status_icon="🚨"; color=$RED; }
     [[ $percent -gt 60 ]] && { status_icon="⚠"; color=$YELLOW; }
