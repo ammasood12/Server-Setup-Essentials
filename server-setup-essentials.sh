@@ -34,7 +34,7 @@ readonly MIN_SAFE_RAM_MB=100
 readonly DEFAULT_TIMEZONE="Asia/Shanghai"
 # readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen" "speedtest-cli" "traceroute" "ethtool")
 # readonly NETWORK_PACKAGES=("speedtest-cli" "traceroute" "ethtool" "net-tools" "dnsutils" "iptables-persistent")
-readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat")
+readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
 readonly NETWORK_PACKAGES=("vnstat")
 LOG_DIR="/root/server-setup-logs/"
 mkdir -p "$LOG_DIR" 
@@ -1458,4 +1458,5 @@ main() {
 }
 
 main "$@"
+
 
