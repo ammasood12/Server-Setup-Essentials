@@ -8,7 +8,7 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.5"
+VERSION="v2.4.6"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1237,42 +1237,77 @@ configure_timezone() {
 
     pause
 }
+###### Server Hostname Configuration ######
+#######################################
 
+configure_hostname() {
+    section_title "Change Server Hostname"
 
-configure_timezone_1() {
-    section_title "Timezone Configuration"
-    local current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")
-    echo -e "Current timezone: ${CYAN}${current_tz}${RESET}"
-    echo -e "${BOLD}Available timezones:${RESET}"
-	echo
-	echo -e "${YELLOW}Note: To match cloud billing reset times:${RESET}"
-	echo -e "   • Linode → Use ${CYAN}UTC${RESET}"
-	echo -e "   • DigitalOcean → Use ${CYAN}UTC${RESET}"
-	echo -e "   • LightNode → Use ${CYAN}Asia/Shanghai${RESET}"
-	echo
+    local current_hostname new_hostname
     
-    local timezones=(
-        "Asia/Shanghai" "Asia/Tokyo" "Asia/Singapore" 
-        "UTC" "Europe/London" "America/New_York" "Custom input"
-    )
+    # Get current hostname
+    current_hostname=$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "Unknown")
     
-    for i in "${!timezones[@]}"; do
-        echo "   $((i+1))) ${timezones[$i]}"
-    done
-    echo "   0) Cancel"
     echo
+    echo -e "   Current Hostname: ${CYAN}${current_hostname}${RESET}"
+    echo
+
+    # Ask if user wants to change hostname
+    read -rp "   Do you want to change the hostname? (y/N): " change_choice
     
-    read -rp "   Choose option [0-7]: " tz_choice
-    case $tz_choice in
-        [1-6]) local new_tz="${timezones[$((tz_choice-1))]}" ;;
-        7) read -rp "Enter timezone: " new_tz; [[ -z "$new_tz" ]] && { log_warn "No timezone entered"; return; } ;;
-        0) log_warn "Timezone change cancelled"; return ;;
-        *) log_warn "Invalid choice"; return ;;
-    esac
+    if [[ ! "$change_choice" =~ ^[Yy]$ ]]; then
+        log_warn "Hostname change cancelled."
+        return
+    fi
     
-    timedatectl set-timezone "$new_tz" 2>/dev/null && \
-        log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)" || \
-        log_error "Failed to set timezone: $new_tz"
+    # Ask for new hostname
+    read -rp "Enter new hostname: " new_hostname
+    
+    # Validate input
+    if [[ -z "$new_hostname" ]]; then
+        log_warn "No hostname entered. Cancelled."
+        return
+    fi
+    
+    # Validate hostname format
+    if [[ ! "$new_hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || [[ ${#new_hostname} -gt 63 ]]; then
+        log_error "Invalid hostname format. Hostname must be 1-63 characters, alphanumeric with hyphens only, and cannot start or end with hyphen."
+        return
+    fi
+    
+    # Ask for confirmation
+    echo
+    echo -e "   You are about to change hostname from: ${CYAN}${current_hostname}${RESET}"
+    echo -e "   To: ${CYAN}${new_hostname}${RESET}"
+    echo
+    read -rp "   Confirm hostname change? (y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log_warn "Hostname change cancelled by user."
+        return
+    fi
+    
+    # Apply hostname
+    if sudo hostnamectl set-hostname "$new_hostname" 2>/dev/null; then
+        # Also update /etc/hostname for persistence
+        echo "$new_hostname" | sudo tee /etc/hostname >/dev/null 2>&1
+        
+        # Update /etc/hosts
+        if grep -q "127.0.1.1" /etc/hosts 2>/dev/null; then
+            sudo sed -i "s/127.0.1.1.*$/127.0.1.1\t$new_hostname/" /etc/hosts 2>/dev/null
+        fi
+        
+        log_ok "Hostname successfully changed to: ${CYAN}$new_hostname${RESET}"
+        log_info "Note: Full hostname change may require a reboot to take effect everywhere."
+        
+        # Show the new hostname
+        echo
+        echo -e "   New Hostname: ${CYAN}$(hostname)${RESET}"
+    else
+        log_error "Failed to set hostname: $new_hostname"
+        log_info "You may need to run this script with appropriate privileges."
+    fi
+
     pause
 }
 
@@ -1411,11 +1446,12 @@ main_menu() {
 		echo
         echo -e "   1) ${ORANGE}Quick Setup${RESET} (Full)"
         echo -e "   2) ${ORANGE}Quick Setup${RESET} (Software+Swap+Network)"
-        echo -e "   3) ${GREEN}Timezone Configuration${RESET}" 
-        echo -e "   4) ${YELLOW}Install Essential Software${RESET}"
-        echo -e "   5) ${CYAN}System Swap Management${RESET}"
-        echo -e "   6) ${BLUE}Network Optimization${RESET}"
-		echo -e "   7) ${PURPLE}Logs Optimization${RESET}"
+        echo -e "   3) ${YELLOW}Install Essential Software${RESET}"
+        echo -e "   4) ${CYAN}System Swap Management${RESET}"
+        echo -e "   5) ${BLUE}Network Optimization${RESET}"
+		echo -e "   6) ${PURPLE}Logs Optimization${RESET}"
+        echo -e "   7) ${GREEN}Timezone Configuration${RESET}"
+        echo -e "   8) ${GREEN}Change Server Hostname${RESET}"
         echo -e "   0) ${RED}Exit${RESET}"
         echo
         
@@ -1423,11 +1459,12 @@ main_menu() {
         case $choice in
             1) quick_setup_full ;;
             2) quick_setup_partial ;;
-            3) configure_timezone ;;
-            4) install_packages ;;
-            5) swap_management_menu ;;
-            6) network_tools_menu ;;
-			7) logs_optimization_menu ;;
+            3) install_packages ;;
+            4) swap_management_menu ;;
+            5) network_tools_menu ;;
+			6) logs_optimization_menu ;;
+            7) configure_timezone ;;
+            7) configure_hostname ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
@@ -1458,5 +1495,3 @@ main() {
 }
 
 main "$@"
-
-
