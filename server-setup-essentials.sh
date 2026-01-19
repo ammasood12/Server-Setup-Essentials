@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.4.8"
+VERSION="v2.4.9"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1372,20 +1372,28 @@ install_packages() {
 }
 
 
+
+
+
 ###### Combined Benchmark & Media Check Menu ######
 ####################################################
 
 benchmark_menu() {
     while true; do
         section_title "Benchmark & Media Checking Tools"
+        echo -e "${CYAN}Collection of useful online benchmarking and testing tools:${RESET}"
+        echo
+        echo "   ┌─ ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
         echo "   1) BackBone Check 1 (raw.githubusercontent.com)"
         echo "   2) BackBone Check 2 (route.f2k.pub)"
         echo "   3) Bench.sh (Full System Benchmark)"
         echo "   4) YABS (Yet Another Benchmark Script)"
         echo "   5) Speedtest (from Ookla)"
+        echo "   ├─ ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
         echo "   6) Check Media 1 (unlock.media)"
         echo "   7) Check Media 2 (Media.Check.Place)"
         echo "   8) Check Media Quality (Check.Place)"
+        echo "   └────────────────────────────────────────────────"
         echo "   0) Back to Main Menu"
         echo
         
@@ -1405,12 +1413,13 @@ benchmark_menu() {
     done
 }
 
+
 ###### Generic Command Runner Function ######
 ###############################################
 
 run_generic_command() {
     local command_name="$1"
-    local command_type="$2"  # "direct", "pipe", "eval"
+    local command_type="$2"  # "direct", "pipe", "eval", "interactive"
     local command="$3"
     local description="$4"
     local source_info="$5"
@@ -1453,13 +1462,23 @@ run_generic_command() {
             eval "$command"
             exit_code=$?
             ;;
+        "interactive")
+            # For interactive scripts that need user input
+            # Use eval to run in current shell for full interactivity
+            log_info "Running interactive command. Use Ctrl+C to exit."
+            echo -e "${CYAN}════════════════════════════════════════════════════════════════════${RESET}"
+            eval "$command"
+            exit_code=$?
+            echo -e "${CYAN}════════════════════════════════════════════════════════════════════${RESET}"
+            ;;
         *)
             log_error "Unknown command type: $command_type"
             return 1
             ;;
     esac
     
-    if [[ $exit_code -eq 0 ]]; then
+    if [[ $exit_code -eq 0 ]] || [[ $exit_code -eq 130 ]] || [[ $exit_code -eq 143 ]]; then
+        # Exit codes 130 (Ctrl+C) and 143 (SIGTERM) are normal for user interruption
         log_ok "$command_name completed"
         return 0
     else
@@ -1474,27 +1493,27 @@ run_generic_command() {
 run_backbone_check_1() {
     run_generic_command \
         "BackBone Check 1" \
-        "pipe" \
-        "curl https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh -sSf | sh" \
-        "This will download and run a script from GitHub to check backbone connectivity" \
+        "interactive" \
+        "curl -sSf https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh | bash" \
+        "Interactive backbone connectivity check script" \
         "https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh"
 }
 
 run_backbone_check_2() {
     run_generic_command \
         "BackBone Check 2" \
-        "direct" \
+        "interactive" \
         "wget -q route.f2k.pub -O route && bash route && rm -f route" \
-        "This will download and run a script to check backbone connectivity" \
+        "Interactive backbone connectivity check script" \
         "route.f2k.pub"
 }
 
 run_bench_sh() {
     run_generic_command \
         "Bench.sh" \
-        "pipe" \
+        "interactive" \
         "wget -qO- bench.sh | bash" \
-        "This will run the classic bench.sh system benchmark" \
+        "Classic interactive system benchmark" \
         "bench.sh"
 }
 
@@ -1533,9 +1552,9 @@ run_yabs() {
     
     run_generic_command \
         "YABS Benchmark" \
-        "pipe" \
+        "interactive" \
         "curl -sL yabs.sh | bash $yabs_flags" \
-        "Yet Another Benchmark Script - comprehensive system testing" \
+        "Interactive comprehensive system testing" \
         "yabs.sh"
 }
 
@@ -1549,7 +1568,7 @@ run_speedtest() {
     fi
     
     echo "   Speedtest options:"
-    echo "   1) Automatic server selection"
+    echo "   1) Automatic server selection (interactive)"
     echo "   2) List servers and choose"
     echo "   3) Test download only"
     echo "   4) Test upload only"
@@ -1564,25 +1583,53 @@ run_speedtest() {
     local speedtest_cmd="speedtest-cli"
     
     case $speed_choice in
-        1) speedtest_cmd="$speedtest_cmd" ;;
+        1) 
+            run_generic_command \
+                "Speedtest" \
+                "interactive" \
+                "speedtest-cli" \
+                "Interactive network speed test" \
+                "speedtest.net"
+            ;;
         2) 
             log_info "Fetching server list..."
             speedtest-cli --list | head -20
             read -rp "   Enter server ID: " server_id
-            [[ -n "$server_id" ]] && speedtest_cmd="$speedtest_cmd --server $server_id"
+            if [[ -n "$server_id" ]]; then
+                run_generic_command \
+                    "Speedtest" \
+                    "interactive" \
+                    "speedtest-cli --server $server_id" \
+                    "Interactive network speed test with selected server" \
+                    "speedtest.net"
+            fi
             ;;
-        3) speedtest_cmd="$speedtest_cmd --no-upload" ;;
-        4) speedtest_cmd="$speedtest_cmd --no-download" ;;
-        5) speedtest_cmd="$speedtest_cmd --share" ;;
+        3)
+            run_generic_command \
+                "Speedtest (Download Only)" \
+                "interactive" \
+                "speedtest-cli --no-upload" \
+                "Interactive download speed test" \
+                "speedtest.net"
+            ;;
+        4)
+            run_generic_command \
+                "Speedtest (Upload Only)" \
+                "interactive" \
+                "speedtest-cli --no-download" \
+                "Interactive upload speed test" \
+                "speedtest.net"
+            ;;
+        5)
+            run_generic_command \
+                "Speedtest (with Sharing)" \
+                "interactive" \
+                "speedtest-cli --share" \
+                "Interactive network speed test with result sharing" \
+                "speedtest.net"
+            ;;
         *) log_warn "Invalid choice"; return 1 ;;
     esac
-    
-    run_generic_command \
-        "Speedtest" \
-        "direct" \
-        "$speedtest_cmd" \
-        "Network speed test using Ookla's speedtest-cli" \
-        "speedtest.net"
 }
 
 ###### Media Check Functions using Generic Runner ######
@@ -1591,29 +1638,32 @@ run_speedtest() {
 check_media_unlock_1() {
     run_generic_command \
         "Media Check 1 (unlock.media)" \
-        "pipe" \
+        "interactive" \
         "bash <(curl -L -s check.unlock.media) -E en" \
-        "Check media unlock status for various streaming services" \
+        "Interactive media unlock status check" \
         "check.unlock.media"
 }
 
 check_media_unlock_2() {
     run_generic_command \
         "Media Check 2 (Media.Check.Place)" \
-        "pipe" \
+        "interactive" \
         "bash <(curl -sL Media.Check.Place) -E en" \
-        "Check media unlock status for various streaming services" \
+        "Interactive media unlock status check" \
         "Media.Check.Place"
 }
 
 check_media_quality() {
     run_generic_command \
         "Media Quality Check" \
-        "pipe" \
+        "interactive" \
         "bash <(curl -Ls Check.Place) -E" \
-        "Check media streaming quality and performance" \
+        "Interactive media streaming quality check" \
         "Check.Place"
 }
+
+
+
 
 
 ###### Quick Setup ######
