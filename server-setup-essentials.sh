@@ -8,7 +8,8 @@
 # - Software installation (multi-select)
 # - Comprehensive network optimization
 
-VERSION="v2.4.6"
+APP_NAME="SERVER SETUP ESSENTIALS"
+VERSION="v2.4.8"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -38,15 +39,33 @@ readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
 readonly NETWORK_PACKAGES=("vnstat")
 LOG_DIR="/root/server-setup-logs/"
 mkdir -p "$LOG_DIR" 
-readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
+# readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
+readonly LOG_FILE="/root/server-setup-logs/server-setup.log"
 
 ###### Logging Functions ######
 #######################################
 
-log_info()  { echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}" | tee -a "$LOG_FILE"; }
-log_ok()    { echo -e "${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}" | tee -a "$LOG_FILE"; }
-log_warn()  { echo -e "${YELLOW}${BOLD}[WARN]${RESET} ${YELLOW}$*${RESET}" | tee -a "$LOG_FILE"; }
-log_error() { echo -e "${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}" | tee -a "$LOG_FILE"; }
+# log_info()  { echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}" | tee -a "$LOG_FILE"; }
+# log_ok()    { echo -e "${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}" | tee -a "$LOG_FILE"; }
+# log_warn()  { echo -e "${YELLOW}${BOLD}[WARN]${RESET} ${YELLOW}$*${RESET}" | tee -a "$LOG_FILE"; }
+# log_error() { echo -e "${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}" | tee -a "$LOG_FILE"; }
+# In the logging functions, add timestamps to each message:
+log_info()  { 
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[$timestamp] ${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}" | tee -a "$LOG_FILE" 
+}
+log_ok()    { 
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[$timestamp] ${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}" | tee -a "$LOG_FILE" 
+}
+log_warn()  { 
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[$timestamp] ${YELLOW}${BOLD}[WARN]${RESET} ${YELLOW}$*${RESET}" | tee -a "$LOG_FILE" 
+}
+log_error() { 
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[$timestamp] ${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}" | tee -a "$LOG_FILE" 
+}
 
 ###### Utility Functions ######
 #######################################
@@ -1237,6 +1256,7 @@ configure_timezone() {
 
     pause
 }
+
 ###### Server Hostname Configuration ######
 #######################################
 
@@ -1351,6 +1371,251 @@ install_packages() {
     pause
 }
 
+
+###### Combined Benchmark & Media Check Menu ######
+####################################################
+
+benchmark_menu() {
+    while true; do
+        section_title "Benchmark & Media Checking Tools"
+        echo "   1) BackBone Check 1 (raw.githubusercontent.com)"
+        echo "   2) BackBone Check 2 (route.f2k.pub)"
+        echo "   3) Bench.sh (Full System Benchmark)"
+        echo "   4) YABS (Yet Another Benchmark Script)"
+        echo "   5) Speedtest (from Ookla)"
+        echo "   6) Check Media 1 (unlock.media)"
+        echo "   7) Check Media 2 (Media.Check.Place)"
+        echo "   8) Check Media Quality (Check.Place)"
+        echo "   0) Back to Main Menu"
+        echo
+        
+        read -rp "   Choose option [0-8]: " choice
+        case $choice in
+            1) run_backbone_check_1; pause ;;
+            2) run_backbone_check_2; pause ;;
+            3) run_bench_sh; pause ;;
+            4) run_yabs; pause ;;
+            5) run_speedtest; pause ;;
+            6) check_media_unlock_1; pause ;;
+            7) check_media_unlock_2; pause ;;
+            8) check_media_quality; pause ;;
+            0) return ;;
+            *) log_warn "Invalid choice"; pause ;;
+        esac
+    done
+}
+
+###### Generic Command Runner Function ######
+###############################################
+
+run_generic_command() {
+    local command_name="$1"
+    local command_type="$2"  # "direct", "pipe", "eval"
+    local command="$3"
+    local description="$4"
+    local source_info="$5"
+    
+    section_title "$command_name"
+    
+    if [[ -n "$description" ]]; then
+        echo -e "${YELLOW}Note: $description${RESET}"
+    fi
+    
+    if [[ -n "$source_info" ]]; then
+        echo -e "${YELLOW}Source: $source_info${RESET}"
+    fi
+    
+    echo -e "${YELLOW}Command: $command${RESET}"
+    echo
+    
+    read -rp "   Are you sure you want to continue? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Cancelled"; return 1; }
+    
+    log_info "Running $command_name..."
+    echo -e "${CYAN}Executing: $command${RESET}"
+    echo
+    
+    local exit_code=0
+    
+    case "$command_type" in
+        "direct")
+            # For commands like: command arg1 arg2
+            eval "$command"
+            exit_code=$?
+            ;;
+        "pipe")
+            # For commands like: cmd1 | cmd2
+            bash -c "$command"
+            exit_code=$?
+            ;;
+        "eval")
+            # For complex commands that need direct evaluation
+            eval "$command"
+            exit_code=$?
+            ;;
+        *)
+            log_error "Unknown command type: $command_type"
+            return 1
+            ;;
+    esac
+    
+    if [[ $exit_code -eq 0 ]]; then
+        log_ok "$command_name completed"
+        return 0
+    else
+        log_error "$command_name failed (exit code: $exit_code)"
+        return $exit_code
+    fi
+}
+
+###### Benchmark Functions using Generic Runner ######
+######################################################
+
+run_backbone_check_1() {
+    run_generic_command \
+        "BackBone Check 1" \
+        "pipe" \
+        "curl https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh -sSf | sh" \
+        "This will download and run a script from GitHub to check backbone connectivity" \
+        "https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh"
+}
+
+run_backbone_check_2() {
+    run_generic_command \
+        "BackBone Check 2" \
+        "direct" \
+        "wget -q route.f2k.pub -O route && bash route && rm -f route" \
+        "This will download and run a script to check backbone connectivity" \
+        "route.f2k.pub"
+}
+
+run_bench_sh() {
+    run_generic_command \
+        "Bench.sh" \
+        "pipe" \
+        "wget -qO- bench.sh | bash" \
+        "This will run the classic bench.sh system benchmark" \
+        "bench.sh"
+}
+
+run_yabs() {
+    section_title "Running YABS (Yet Another Benchmark Script)"
+    
+    echo "   Select benchmark options:"
+    echo "   1) Full YABS (default)"
+    echo "   2) YABS without Geekbench"
+    echo "   3) YABS without disk test"
+    echo "   4) Custom flags"
+    echo "   0) Cancel"
+    echo
+    
+    read -rp "   Choose option [0-4]: " yabs_choice
+    
+    [[ "$yabs_choice" == "0" ]] && { log_warn "Cancelled"; return 1; }
+    
+    local yabs_flags=""
+    case $yabs_choice in
+        1) yabs_flags="" ;;
+        2) yabs_flags="-i" ;;
+        3) yabs_flags="-d" ;;
+        4)
+            echo "   Available flags:"
+            echo "   -i : skip Geekbench system performance test"
+            echo "   -d : skip fio disk performance test"
+            echo "   -r : skip speedtest network performance test"
+            echo "   -w : skip WireGuard network stack test"
+            echo "   Example: -id (skip both Geekbench and disk test)"
+            read -rp "   Enter flags (without dash): " custom_flags
+            [[ -n "$custom_flags" ]] && yabs_flags="-$custom_flags"
+            ;;
+        *) log_warn "Invalid choice"; return 1 ;;
+    esac
+    
+    run_generic_command \
+        "YABS Benchmark" \
+        "pipe" \
+        "curl -sL yabs.sh | bash $yabs_flags" \
+        "Yet Another Benchmark Script - comprehensive system testing" \
+        "yabs.sh"
+}
+
+run_speedtest() {
+    section_title "Running Speedtest (Ookla)"
+    
+    # Check if speedtest-cli is installed
+    if ! command -v speedtest-cli >/dev/null 2>&1; then
+        log_info "speedtest-cli not found. Installing..."
+        apt update -y >/dev/null 2>&1 && apt install -y speedtest-cli >/dev/null 2>&1
+    fi
+    
+    echo "   Speedtest options:"
+    echo "   1) Automatic server selection"
+    echo "   2) List servers and choose"
+    echo "   3) Test download only"
+    echo "   4) Test upload only"
+    echo "   5) Share results"
+    echo "   0) Cancel"
+    echo
+    
+    read -rp "   Choose option [0-5]: " speed_choice
+    
+    [[ "$speed_choice" == "0" ]] && { log_warn "Cancelled"; return 1; }
+    
+    local speedtest_cmd="speedtest-cli"
+    
+    case $speed_choice in
+        1) speedtest_cmd="$speedtest_cmd" ;;
+        2) 
+            log_info "Fetching server list..."
+            speedtest-cli --list | head -20
+            read -rp "   Enter server ID: " server_id
+            [[ -n "$server_id" ]] && speedtest_cmd="$speedtest_cmd --server $server_id"
+            ;;
+        3) speedtest_cmd="$speedtest_cmd --no-upload" ;;
+        4) speedtest_cmd="$speedtest_cmd --no-download" ;;
+        5) speedtest_cmd="$speedtest_cmd --share" ;;
+        *) log_warn "Invalid choice"; return 1 ;;
+    esac
+    
+    run_generic_command \
+        "Speedtest" \
+        "direct" \
+        "$speedtest_cmd" \
+        "Network speed test using Ookla's speedtest-cli" \
+        "speedtest.net"
+}
+
+###### Media Check Functions using Generic Runner ######
+########################################################
+
+check_media_unlock_1() {
+    run_generic_command \
+        "Media Check 1 (unlock.media)" \
+        "pipe" \
+        "bash <(curl -L -s check.unlock.media) -E en" \
+        "Check media unlock status for various streaming services" \
+        "check.unlock.media"
+}
+
+check_media_unlock_2() {
+    run_generic_command \
+        "Media Check 2 (Media.Check.Place)" \
+        "pipe" \
+        "bash <(curl -sL Media.Check.Place) -E en" \
+        "Check media unlock status for various streaming services" \
+        "Media.Check.Place"
+}
+
+check_media_quality() {
+    run_generic_command \
+        "Media Quality Check" \
+        "pipe" \
+        "bash <(curl -Ls Check.Place) -E" \
+        "Check media streaming quality and performance" \
+        "Check.Place"
+}
+
+
 ###### Quick Setup ######
 #######################################
 
@@ -1452,6 +1717,7 @@ main_menu() {
 		echo -e "   6) ${PURPLE}Logs Optimization${RESET}"
         echo -e "   7) ${GREEN}Timezone Configuration${RESET}"
         echo -e "   8) ${GREEN}Change Server Hostname${RESET}"
+		echo -e "   9) ${MAGENTA}Benchmark Tools${RESET}"
         echo -e "   0) ${RED}Exit${RESET}"
         echo
         
@@ -1465,6 +1731,7 @@ main_menu() {
 			6) logs_optimization_menu ;;
             7) configure_timezone ;;
             8) configure_hostname ;;
+			9) benchmark_menu ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
