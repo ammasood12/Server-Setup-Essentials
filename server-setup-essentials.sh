@@ -1948,9 +1948,12 @@ main_menu() {
         printf "   ${BLUE}%-${col1_width}s${RESET}" "5) Network Optimization"
         printf "   ${CYAN}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
         
-        # Exit option aligned to second column
-        printf "   %-${col1_width}s" ""
-        printf "   ${RED}%-${col2_width}s${RESET}\n" "0) Exit"
+        printf "   ${RED}%-${col2_width}s${RESET}" "0) Exit"
+        printf "   %-${col1_width}s\n" ""
+        
+        # # Exit option aligned to second column
+        # printf "   %-${col1_width}s" ""
+        # printf "   ${RED}%-${col2_width}s${RESET}\n" "0) Exit"
         
         echo
         read -rp "   Choose option [0-10]: " choice
