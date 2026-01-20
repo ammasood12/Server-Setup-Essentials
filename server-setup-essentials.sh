@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.2"
+VERSION="v2.5.0"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1925,8 +1925,8 @@ main_menu() {
 		echo
         
         # Two columns with fixed width
-        col1_width=30
-        col2_width=30
+        col1_width=25
+        col2_width=25
         
         # Color scheme by category:
         # SETUP = Orange, SOFTWARE = Yellow, SYSTEM = Cyan
@@ -1939,7 +1939,7 @@ main_menu() {
         printf "   ${ORANGE}%-${col1_width}s${RESET}" "2) Quick Setup (Partial)"
         printf "   ${GREEN}%-${col2_width}s${RESET}\n" "7) Timezone Configuration"
         
-        printf "   ${YELLOW}%-${col1_width}s${RESET}" "3) Install Essential Software"
+        printf "   ${YELLOW}%-${col1_width}s${RESET}" "3) Essential Software"
         printf "   ${GREEN}%-${col2_width}s${RESET}\n" "8) Change Server Hostname"
         
         printf "   ${CYAN}%-${col1_width}s${RESET}" "4) System Swap Management"
@@ -1996,4 +1996,3 @@ main() {
 }
 
 main "$@"
-
