@@ -1928,8 +1928,13 @@ main_menu() {
         col1_width=35
         col2_width=35
         
+        # Color scheme by category:
+        # SETUP = Orange, SOFTWARE = Yellow, SYSTEM = Cyan
+        # NETWORK = Blue, UTILITIES = Green, TOOLS = Magenta
+        # MAINTENANCE = Cyan, EXIT = Red
+        
         printf "   ${ORANGE}%-${col1_width}s${RESET}" "1) Quick Setup (Full)"
-        printf "   ${ORANGE}%-${col2_width}s${RESET}\n" "6) Logs Optimization"
+        printf "   ${PURPLE}%-${col2_width}s${RESET}\n" "6) Logs Optimization"
         
         printf "   ${ORANGE}%-${col1_width}s${RESET}" "2) Quick Setup (Partial)"
         printf "   ${GREEN}%-${col2_width}s${RESET}\n" "7) Timezone Configuration"
@@ -1938,10 +1943,10 @@ main_menu() {
         printf "   ${GREEN}%-${col2_width}s${RESET}\n" "8) Change Server Hostname"
         
         printf "   ${CYAN}%-${col1_width}s${RESET}" "4) System Swap Management"
-        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "9) Benchmark Tools"
+        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "9) Benchmark & Media Tools"
         
         printf "   ${BLUE}%-${col1_width}s${RESET}" "5) Network Optimization"
-        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
+        printf "   ${CYAN}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
         
         # Exit option aligned to second column
         printf "   %-${col1_width}s" ""
