@@ -23,6 +23,8 @@ readonly MAGENTA='\033[0;35m'
 readonly CYAN='\033[0;36m'
 readonly ORANGE='\033[0;33m'
 readonly PURPLE='\033[0;35m'
+readonly GRAY='\033[0;90m'
+readonly LIGHT_GRAY='\033[0;37m'
 readonly BOLD='\033[1m'
 readonly UNDERLINE='\033[4m'
 readonly RESET='\033[0m'
@@ -316,6 +318,7 @@ display_system_info() {
     
     printf "${YELLOW}%-14s${RESET} %-46s\n" "  Hostname:" "$HOSTNAME"
     printf "${YELLOW}%-14s${RESET} %-46s\n" "  OS:" "$OS (Kernel: $KERNEL)"
+	printf "${YELLOW}%-14s${RESET} %-22s ${GRAY}%s${RESET}\n" "  OS:" "$OS" "(Kernel: $KERNEL)" 
     # printf "${YELLOW}%-14s${RESET} %-46s\n" "  Kernel:" "$KERNEL"
     printf "${YELLOW}%-14s${RESET} %-46s\n" "  CPU:" "$CPU ($CORES cores)"
 }
