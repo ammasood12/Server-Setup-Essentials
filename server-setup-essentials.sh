@@ -1493,17 +1493,19 @@ benchmark_menu() {
         section_title "Benchmark & Media Checking Tools"
         echo -e "${CYAN}Collection of useful online benchmarking and testing tools:${RESET}"
         echo
-        echo -e "   ┌─ ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
-        echo "   1) BackBone Check 1 (raw.githubusercontent.com)"
+        echo -e "   ── ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
+        echo "   1) BackBone Check 1 (ludashi2020/backtrace)"
         echo "   2) BackBone Check 2 (route.f2k.pub)"
         echo "   3) Bench.sh (Full System Benchmark)"
         echo "   4) YABS (Yet Another Benchmark Script)"
         echo "   5) Speedtest (from Ookla)"
-        echo -e "   ├─ ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
-        echo "   6) Check Media 1 (unlock.media)"
+        echo -e "   ── ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
+        echo "   6) Check Media 1 (Check.Unlock.Media)"
         echo "   7) Check Media 2 (Media.Check.Place)"
         echo "   8) Check Media Quality (Check.Place)"
-        echo -e "   └────────────────────────────────────────────────"
+        echo -e "   ─────────────────────────────────────────────────"		
+        echo "   9) Check System Information"
+		echo
         echo "   0) Back to Main Menu"
         echo
         
@@ -1517,12 +1519,12 @@ benchmark_menu() {
             6) check_media_unlock_1; pause ;;
             7) check_media_unlock_2; pause ;;
             8) check_media_quality; pause ;;
+			9) run_check_sysinfo; pause ;;
             0) return ;;
             *) log_warn "Invalid choice"; pause ;;
         esac
     done
 }
-
 
 ###### Generic Command Runner Function ######
 ###############################################
@@ -1616,6 +1618,15 @@ run_backbone_check_2() {
         "wget -q route.f2k.pub -O route && bash route && rm -f route" \
         "Interactive backbone connectivity check script" \
         "route.f2k.pub"
+}
+
+run_check_sysinfo() {
+    run_generic_command \
+        "Check System Info" \
+        "direct" \
+        "wget -qO - https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh | bash -s" \
+        "Non-interactive system information check script" \
+        "https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh"
 }
 
 run_bench_sh() {
@@ -1871,50 +1882,6 @@ quick_setup_partial() {
 
 ###### Main Menu ######
 #######################################
-
-main_menu_1() {
-    while true; do
-        banner
-		display_system_status
-		echo
-		echo -e "${BOLD}${MAGENTA}🏠 MAIN MENU${RESET}"
-		echo
-        echo -e "   1) ${ORANGE}Quick Setup${RESET} (Full)"
-        echo -e "   2) ${ORANGE}Quick Setup${RESET} (Software+Swap+Network)"
-        echo -e "   3) ${YELLOW}Install Essential Software${RESET}"
-        echo -e "   4) ${CYAN}System Swap Management${RESET}"
-        echo -e "   5) ${BLUE}Network Optimization${RESET}"
-		echo -e "   6) ${PURPLE}Logs Optimization${RESET}"
-        echo -e "   7) ${GREEN}Timezone Configuration${RESET}"
-        echo -e "   8) ${GREEN}Change Server Hostname${RESET}"
-		echo -e "   9) ${MAGENTA}Benchmark Tools${RESET}"
-		echo -e "   10) ${MAGENTA}System Update & Upgrade${RESET}"
-        echo -e "   0) ${RED}Exit${RESET}"
-        echo
-        
-        read -rp "   Choose option [1-6]: " choice
-        case $choice in
-            1) quick_setup_full ;;
-            2) quick_setup_partial ;;
-            3) install_packages ;;
-            4) swap_management_menu ;;
-            5) network_tools_menu ;;
-			6) logs_optimization_menu ;;
-            7) configure_timezone ;;
-            8) configure_hostname ;;
-			9) benchmark_menu ;;
-			10) run_system_update_enhanced ;;
-            0)
-                echo
-                log_ok "   Thank you for using Server Setup Essentials! 👋"
-                echo -e "${GREEN}Log file: ${LOG_FILE}${RESET}"
-                exit 0
-                ;;
-            *) log_warn "Invalid choice"; pause ;;
-        esac
-    done
-}
-
 
 main_menu() {
     while true; do
