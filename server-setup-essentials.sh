@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.4.9"
+VERSION="v2.4.10"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1337,27 +1337,49 @@ configure_hostname() {
 install_packages() {
     section_title "Package Installation"
 	echo
-    # echo -e "${BOLD}Select packages to install:${RESET}"
     echo "   1) Essential tools (curl, wget, nano, htop, vnstat)"
     echo "   2) Development tools (git, unzip, screen)"
     echo "   3) Network tools (speedtest-cli, traceroute, ethtool, net-tools)"
-    echo "   4) All recommended packages"
-    echo "   5) Custom selection"
+    echo "   4) System Update & Upgrade"
+    echo "   5) All recommended packages"
+    echo "   6) Custom selection"
     echo "   0) Cancel"
     echo
     
-    read -rp "   Choose option [0-5]: " pkg_choice
+    read -rp "   Choose option [0-6]: " pkg_choice  # Changed to 6
+    
+    local packages=()
+    local run_update=false
+    
     case $pkg_choice in
-        1) local packages=("curl" "wget" "nano" "htop" "vnstat") ;;
-        2) local packages=("git" "unzip" "screen") ;;
-        3) local packages=("${NETWORK_PACKAGES[@]}") ;;
-        4) local packages=("${BASE_PACKAGES[@]}") ;;
-        5) echo "Enter package names separated by spaces:"; read -r -a packages ;;
-        0) log_warn "Package installation cancelled"; return ;;
-        *) log_warn "Invalid choice"; return ;;
+        1) packages=("curl" "wget" "nano" "htop" "vnstat") ;;
+        2) packages=("git" "unzip" "screen") ;;
+        3) packages=("${NETWORK_PACKAGES[@]}") ;;
+        4) 
+            # Run system update and return
+            run_system_update_enhanced
+            return
+            ;;
+        5) packages=("${BASE_PACKAGES[@]}") ;;
+        6) 
+            echo "Enter package names separated by spaces:"
+            read -r -a packages
+            ;;
+        0) 
+            log_warn "Package installation cancelled"
+            return
+            ;;
+        *) 
+            log_warn "Invalid choice"
+            return
+            ;;
     esac
     
-    [[ ${#packages[@]} -eq 0 ]] && { log_warn "No packages selected"; return; }
+    # If we get here and packages array is empty (shouldn't happen but as safety)
+    if [[ ${#packages[@]} -eq 0 ]]; then 
+        log_warn "No packages selected"
+        return
+    fi
     
     echo -e "Packages to install: ${CYAN}${packages[*]}${RESET}"
     read -rp "Proceed with installation? (y/N): " confirm
@@ -1371,8 +1393,96 @@ install_packages() {
     pause
 }
 
-
-
+run_system_update_enhanced() {
+    section_title "System Update & Upgrade"
+    
+    echo -e "${YELLOW}This will perform the following actions:${RESET}"
+    echo "  🔄 Update package lists (apt update)"
+    echo "  ⬆️  Upgrade installed packages (apt upgrade)"
+    echo "  🧹 Clean up unnecessary packages (autoremove)"
+    echo
+    
+    read -rp "   Proceed with system update? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Update cancelled"; return 1; }
+    
+    # Function to show progress
+    show_progress() {
+        local pid=$1
+        local message=$2
+        local delay=0.5
+        local spinstr='|/-\'
+        
+        echo -n "   $message "
+        while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+            local temp=${spinstr#?}
+            printf " [%c]  " "$spinstr"
+            local spinstr=$temp${spinstr%"$temp"}
+            sleep $delay
+            printf "\b\b\b\b\b\b"
+        done
+        printf "    \b\b\b\b"
+    }
+    
+    # Update package lists
+    log_info "Updating package lists..."
+    apt update -y > /tmp/update.log 2>&1 &
+    update_pid=$!
+    show_progress $update_pid "Updating package lists..."
+    wait $update_pid
+    if grep -q "E:" /tmp/update.log; then
+        log_error "Failed to update package lists"
+        echo -e "${YELLOW}Error details:${RESET}"
+        tail -n 10 /tmp/update.log
+        return 1
+    else
+        log_ok "Package lists updated successfully"
+    fi
+    
+    # Upgrade packages
+    echo
+    log_info "Upgrading installed packages..."
+    echo -e "${YELLOW}Note: This may take several minutes...${RESET}"
+    DEBIAN_FRONTEND=noninteractive apt upgrade -y > /tmp/upgrade.log 2>&1 &
+    upgrade_pid=$!
+    show_progress $upgrade_pid "Upgrading packages..."
+    wait $upgrade_pid
+    
+    # Check for errors
+    if grep -q "E:" /tmp/upgrade.log; then
+        log_warn "Some packages failed to upgrade"
+    else
+        log_ok "Packages upgraded successfully"
+    fi
+    
+    # Show upgrade summary
+    echo
+    log_info "Update Summary:"
+    local upgraded=$(grep -c "^Unpacking" /tmp/upgrade.log 2>/dev/null || echo 0)
+    local installed=$(grep -c "^Setting up" /tmp/upgrade.log 2>/dev/null || echo 0)
+    echo -e "   ${CYAN}Packages unpacked:${RESET} $upgraded"
+    echo -e "   ${CYAN}Packages configured:${RESET} $installed"
+    
+    # Cleanup
+    echo
+    log_info "Cleaning up unnecessary packages..."
+    apt autoremove -y --purge && log_ok "Cleanup completed"
+    
+    # Check for reboot
+    echo
+    log_info "Checking if reboot is required..."
+    if [[ -f /var/run/reboot-required ]]; then
+        log_warn "⚠️  System reboot is required!"
+        echo -e "${YELLOW}Some kernel or system updates require a reboot.${RESET}"
+        echo -e "${YELLOW}You can reboot now or later using: sudo reboot${RESET}"
+    else
+        log_ok "No reboot required"
+    fi
+    
+    # Clean up temp files
+    rm -f /tmp/update.log /tmp/upgrade.log
+    
+    pause
+}
 
 
 ###### Combined Benchmark & Media Check Menu ######
@@ -1664,14 +1774,13 @@ check_media_quality() {
 
 
 
-
-
 ###### Quick Setup ######
 #######################################
 
 quick_setup_full() {
     section_title "Quick Server Setup"
     echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
+    echo "  🔄 Update system packages (apt update && apt upgrade)"
     echo "  ✅ Clean up existing swap files/partitions"
     echo "  ✅ Auto-configure optimal swap (if needed)"
     echo "  ✅ Set timezone to Asia/Shanghai" 
@@ -1684,30 +1793,34 @@ quick_setup_full() {
     read -rp "Proceed with quick setup? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Quick setup cancelled"; return; }
     
+    # System update first
+    sub_section "Step 1: System Update"
+    run_system_update_enhanced
+    
     # Swap configuration
-    sub_section "Step 1: Swap Configuration"
+    sub_section "Step 2: Swap Configuration"
     cleanup_existing_swap
     local recommended=$(recommended_swap_mb)
     [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "No swap configuration needed"
     
     # Timezone
-    sub_section "Step 2: Timezone Configuration"
+    sub_section "Step 3: Timezone Configuration"
     timedatectl set-timezone "$DEFAULT_TIMEZONE" 2>/dev/null && \
         log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)" || \
         log_warn "Failed to set timezone"
     
     # Packages
-    sub_section "Step 3: Package Installation"
-    apt update -y && apt install -y "${BASE_PACKAGES[@]}" && \
-        log_ok "Packages installed successfully" || \
-        log_warn "Some packages failed to install"
+    sub_section "Step 4: Package Installation"
+    apt install -y "${BASE_PACKAGES[@]}" && \
+		log_ok "Packages installed successfully" || \
+		log_warn "Some packages failed to install"
     
     # Network Optimization
-    sub_section "Step 4: Network Optimization"
+    sub_section "Step 5: Network Optimization"
     apply_network_optimization
-	
-	# Step 5: System Logs Optimization
-    sub_section "Step 5: System Logs Optimization"
+    
+    # System Logs Optimization
+    sub_section "Step 6: System Logs Optimization"
     optimize_system_logs
     
     log_ok "🎉 Quick setup completed successfully!"
@@ -1718,6 +1831,7 @@ quick_setup_full() {
 quick_setup_partial() {
     section_title "Quick Server Setup"
     echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
+    echo "  🔄 Update system packages (apt update && apt upgrade)"
     echo "  ✅ Clean up existing swap files/partitions"
     echo "  ✅ Auto-configure optimal swap (if needed)"
     echo "  ✅ Install essential packages"
@@ -1728,26 +1842,32 @@ quick_setup_partial() {
     read -rp "Proceed with quick setup? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Quick setup cancelled"; return; }
     
+    # System update first
+    sub_section "Step 1: System Update"
+    run_system_update_enhanced
+    
     # Swap configuration
-    sub_section "Step 1: Swap Configuration"
+    sub_section "Step 2: Swap Configuration"
     cleanup_existing_swap
     local recommended=$(recommended_swap_mb)
     [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "No swap configuration needed"
         
     # Packages
-    sub_section "Step 2: Package Installation"
-    apt update -y && apt install -y "${BASE_PACKAGES[@]}" && \
-        log_ok "Packages installed successfully" || \
-        log_warn "Some packages failed to install"
+    sub_section "Step 3: Package Installation"
+    apt install -y "${BASE_PACKAGES[@]}" && \
+		log_ok "Packages installed successfully" || \
+		log_warn "Some packages failed to install"
     
     # Network Optimization
-    sub_section "Step 3: Network Optimization"
-    apply_network_optimization	
+    sub_section "Step 4: Network Optimization"
+    apply_network_optimization
     
     log_ok "🎉 Quick setup completed successfully!"
     echo -e "${GREEN}Your server is now optimized and ready for use.${RESET}"
     pause
 }
+
+
 
 ###### Main Menu ######
 #######################################
@@ -1768,6 +1888,7 @@ main_menu() {
         echo -e "   7) ${GREEN}Timezone Configuration${RESET}"
         echo -e "   8) ${GREEN}Change Server Hostname${RESET}"
 		echo -e "   9) ${MAGENTA}Benchmark Tools${RESET}"
+		echo -e "   10) ${MAGENTA}System Update & Upgrade${RESET}"
         echo -e "   0) ${RED}Exit${RESET}"
         echo
         
@@ -1782,6 +1903,7 @@ main_menu() {
             7) configure_timezone ;;
             8) configure_hostname ;;
 			9) benchmark_menu ;;
+			10) run_system_update_enhanced ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
