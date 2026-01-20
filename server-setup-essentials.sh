@@ -1925,8 +1925,8 @@ main_menu() {
 		echo
         
         # Two columns with fixed width
-        col1_width=35
-        col2_width=35
+        col1_width=30
+        col2_width=30
         
         # Color scheme by category:
         # SETUP = Orange, SOFTWARE = Yellow, SYSTEM = Cyan
