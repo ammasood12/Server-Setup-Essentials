@@ -1924,35 +1924,28 @@ main_menu() {
 		echo -e "${BOLD}${MAGENTA}🏠 MAIN MENU${RESET}"
 		echo
         
-        # Define menu items in two columns
-        left_column=(
-            "${ORANGE}1) Quick Setup (Full)"
-            "${ORANGE}2) Quick Setup (Partial)"
-            "${YELLOW}3) Install Essential Software"
-            "${CYAN}4) System Swap Management"
-            "${BLUE}5) Network Optimization"
-        )
+        # Two columns with fixed width
+        col1_width=35
+        col2_width=35
         
-        right_column=(
-            "${ORANGE}6) Logs Optimization"
-            "${GREEN}7) Timezone Configuration"
-            "${GREEN}8) Change Server Hostname"
-            "${MAGENTA}9) Benchmark Tools"
-            "${MAGENTA}10) System Update & Upgrade"
-        )
+        printf "   ${ORANGE}%-${col1_width}s${RESET}" "1) Quick Setup (Full)"
+        printf "   ${ORANGE}%-${col2_width}s${RESET}\n" "6) Logs Optimization"
         
-        # Display two columns
-        for i in "${!left_column[@]}"; do
-            if [[ $i -eq 4 ]]; then
-                # Last row - left column item
-                printf "   %-35s" "${left_column[$i]}"
-                printf "   ${RED}0) Exit${RESET}\n"
-            else
-                # Regular row
-                printf "   %-35s" "${left_column[$i]}"
-                printf "   %s\n" "${right_column[$i]}"
-            fi
-        done
+        printf "   ${ORANGE}%-${col1_width}s${RESET}" "2) Quick Setup (Partial)"
+        printf "   ${GREEN}%-${col2_width}s${RESET}\n" "7) Timezone Configuration"
+        
+        printf "   ${YELLOW}%-${col1_width}s${RESET}" "3) Install Essential Software"
+        printf "   ${GREEN}%-${col2_width}s${RESET}\n" "8) Change Server Hostname"
+        
+        printf "   ${CYAN}%-${col1_width}s${RESET}" "4) System Swap Management"
+        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "9) Benchmark Tools"
+        
+        printf "   ${BLUE}%-${col1_width}s${RESET}" "5) Network Optimization"
+        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
+        
+        # Exit option aligned to second column
+        printf "   %-${col1_width}s" ""
+        printf "   ${RED}%-${col2_width}s${RESET}\n" "0) Exit"
         
         echo
         read -rp "   Choose option [0-10]: " choice
@@ -1977,6 +1970,7 @@ main_menu() {
         esac
     done
 }
+
 
 ###### Main Execution ######
 #######################################
