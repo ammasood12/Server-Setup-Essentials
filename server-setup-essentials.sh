@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.1"
+VERSION="v2.5.0"
 set -euo pipefail
 
 ###### Colors and Styles ######
@@ -1493,17 +1493,17 @@ benchmark_menu() {
         section_title "Benchmark & Media Checking Tools"
         echo -e "${CYAN}Collection of useful online benchmarking and testing tools:${RESET}"
         echo
-        echo "   ┌─ ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
+        echo -e "   ┌─ ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
         echo "   1) BackBone Check 1 (raw.githubusercontent.com)"
         echo "   2) BackBone Check 2 (route.f2k.pub)"
         echo "   3) Bench.sh (Full System Benchmark)"
         echo "   4) YABS (Yet Another Benchmark Script)"
         echo "   5) Speedtest (from Ookla)"
-        echo "   ├─ ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
+        echo -e "   ├─ ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
         echo "   6) Check Media 1 (unlock.media)"
         echo "   7) Check Media 2 (Media.Check.Place)"
         echo "   8) Check Media Quality (Check.Place)"
-        echo "   └────────────────────────────────────────────────"
+        echo -e "   └────────────────────────────────────────────────"
         echo "   0) Back to Main Menu"
         echo
         
