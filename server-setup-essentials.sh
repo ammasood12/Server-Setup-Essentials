@@ -1901,22 +1901,22 @@ main_menu() {
         # NETWORK = Blue, UTILITIES = Green, TOOLS = Magenta
         # MAINTENANCE = Cyan, EXIT = Red
         
-        printf "   ${ORANGE}%-${col1_width}s${RESET}" "1) Quick Setup (Full)"
-        printf "   ${PURPLE}%-${col2_width}s${RESET}\n" "6) Logs Optimization"
+        printf "   ${ORANGE}%-${col1_width}s${RESET}" "1) Quick Setup (Full)"		
+        printf "   ${CYAN}%-${col2_width}s${RESET}\n" "6) System Swap Management"        
         
         printf "   ${ORANGE}%-${col1_width}s${RESET}" "2) Quick Setup (Partial)"
-        printf "   ${GREEN}%-${col2_width}s${RESET}\n" "7) Timezone Configuration"
+		printf "   ${BLUE}%-${col2_width}s${RESET}\n" "7) Network Optimization"
         
         printf "   ${YELLOW}%-${col1_width}s${RESET}" "3) Essential Software"
-        printf "   ${GREEN}%-${col2_width}s${RESET}\n" "8) Change Server Hostname"
-        
-        printf "   ${CYAN}%-${col1_width}s${RESET}" "4) System Swap Management"
-        printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "9) Benchmark & Media Tools"
-        
-        printf "   ${BLUE}%-${col1_width}s${RESET}" "5) Network Optimization"
+        printf "   ${PURPLE}%-${col2_width}s${RESET}\n" "8) Logs Optimization"
+		
+        printf "   ${GREEN}%-${col1_width}s${RESET}" "4) Timezone Configuration"
+		printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "9) Benchmark & Media Tools"
+				
+        printf "   ${GREEN}%-${col1_width}s${RESET}" "5) Change Server Hostname"
         printf "   ${CYAN}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
         
-        printf "   ${RED}%-${col2_width}s${RESET}" "0) Exit"
+        printf "   ${RED}%-${col1_width}s${RESET}" "0) Exit"
         printf "   %-${col1_width}s\n" ""
         
         # # Exit option aligned to second column
@@ -1929,11 +1929,11 @@ main_menu() {
             1) quick_setup_full ;;
             2) quick_setup_partial ;;
             3) install_packages ;;
-            4) swap_management_menu ;;
-            5) network_tools_menu ;;
-			6) logs_optimization_menu ;;
-            7) configure_timezone ;;
-            8) configure_hostname ;;
+            4) configure_timezone ;;
+            5) configure_hostname ;;
+            6) swap_management_menu ;;
+            7) network_tools_menu ;;
+			8) logs_optimization_menu ;;
 			9) benchmark_menu ;;
 			10) run_system_update_enhanced ;;
             0)
