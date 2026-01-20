@@ -317,9 +317,9 @@ display_system_info() {
     local CORES=$(nproc)
     
     printf "${YELLOW}%-14s${RESET} %-46s\n" "  Hostname:" "$HOSTNAME"
-    printf "${YELLOW}%-14s${RESET} %-46s\n" "  OS:" "$OS (Kernel: $KERNEL)"
-	printf "${YELLOW}%-14s${RESET} %-22s ${GRAY}%s${RESET}\n" "  OS:" "$OS" "(Kernel: $KERNEL)" 
+    # printf "${YELLOW}%-14s${RESET} %-46s\n" "  OS:" "$OS"
     # printf "${YELLOW}%-14s${RESET} %-46s\n" "  Kernel:" "$KERNEL"
+	printf "${YELLOW}%-14s${RESET} %-22s ${GRAY}%s${RESET}\n" "  OS:" "$OS" "(Kernel: $KERNEL)" 
     printf "${YELLOW}%-14s${RESET} %-46s\n" "  CPU:" "$CPU ($CORES cores)"
 }
 
