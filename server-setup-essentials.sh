@@ -1829,7 +1829,7 @@ quick_setup_full() {
 }
 
 quick_setup_partial() {
-    section_title "Quick Server Setup"
+    section_title "Quick Server Setup (Software+Swap+Network)"
     echo -e "${BOLD}${GREEN}This will perform the following actions:${RESET}"
     echo "  🔄 Update system packages (apt update && apt upgrade)"
     echo "  ✅ Clean up existing swap files/partitions"
@@ -1872,7 +1872,7 @@ quick_setup_partial() {
 ###### Main Menu ######
 #######################################
 
-main_menu() {
+main_menu_1() {
     while true; do
         banner
 		display_system_status
@@ -1893,6 +1893,69 @@ main_menu() {
         echo
         
         read -rp "   Choose option [1-6]: " choice
+        case $choice in
+            1) quick_setup_full ;;
+            2) quick_setup_partial ;;
+            3) install_packages ;;
+            4) swap_management_menu ;;
+            5) network_tools_menu ;;
+			6) logs_optimization_menu ;;
+            7) configure_timezone ;;
+            8) configure_hostname ;;
+			9) benchmark_menu ;;
+			10) run_system_update_enhanced ;;
+            0)
+                echo
+                log_ok "   Thank you for using Server Setup Essentials! 👋"
+                echo -e "${GREEN}Log file: ${LOG_FILE}${RESET}"
+                exit 0
+                ;;
+            *) log_warn "Invalid choice"; pause ;;
+        esac
+    done
+}
+
+
+main_menu() {
+    while true; do
+        banner
+		display_system_status
+		echo
+		echo -e "${BOLD}${MAGENTA}🏠 MAIN MENU${RESET}"
+		echo
+        
+        # Define menu items in two columns
+        left_column=(
+            "${ORANGE}1) Quick Setup (Full)"
+            "${ORANGE}2) Quick Setup (Partial)"
+            "${YELLOW}3) Install Essential Software"
+            "${CYAN}4) System Swap Management"
+            "${BLUE}5) Network Optimization"
+        )
+        
+        right_column=(
+            "${ORANGE}6) Logs Optimization"
+            "${GREEN}7) Timezone Configuration"
+            "${GREEN}8) Change Server Hostname"
+            "${MAGENTA}9) Benchmark Tools"
+            "${MAGENTA}10) System Update & Upgrade"
+        )
+        
+        # Display two columns
+        for i in "${!left_column[@]}"; do
+            if [[ $i -eq 4 ]]; then
+                # Last row - left column item
+                printf "   %-35s" "${left_column[$i]}"
+                printf "   ${RED}0) Exit${RESET}\n"
+            else
+                # Regular row
+                printf "   %-35s" "${left_column[$i]}"
+                printf "   %s\n" "${right_column[$i]}"
+            fi
+        done
+        
+        echo
+        read -rp "   Choose option [0-10]: " choice
         case $choice in
             1) quick_setup_full ;;
             2) quick_setup_partial ;;
