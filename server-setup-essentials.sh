@@ -1504,7 +1504,7 @@ benchmark_menu() {
         echo "   7) Check Media 2 (Media.Check.Place)"
         echo "   8) Check Media Quality (Check.Place)"
         echo -e "   ─────────────────────────────────────────────────"		
-        echo "   9) Check System Information"
+        echo "   9) Check System Detailed Information"
 		echo
         echo "   0) Back to Main Menu"
         echo
@@ -1622,7 +1622,7 @@ run_backbone_check_2() {
 
 run_check_sysinfo() {
     run_generic_command \
-        "Check System Info" \
+        "Check System Detailed Information" \
         "direct" \
         "wget -qO - https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh | bash -s" \
         "Non-interactive system information check script" \
