@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.4.10"
+VERSION="v2.5.0"
 set -euo pipefail
 
 ###### Colors and Styles ######
