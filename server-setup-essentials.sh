@@ -9,11 +9,12 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.0"
+VERSION="v2.5.1"
 set -euo pipefail
 
-###### Colors and Styles ######
 #######################################
+
+###### Colors and Styles ######
 
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -29,8 +30,9 @@ readonly BOLD='\033[1m'
 readonly UNDERLINE='\033[4m'
 readonly RESET='\033[0m'
 
-###### Configuration ######
 #######################################
+
+###### Configuration ######
 
 readonly SWAPFILE="/swapfile"
 readonly MIN_SAFE_RAM_MB=100
@@ -44,8 +46,9 @@ mkdir -p "$LOG_DIR"
 # readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
 readonly LOG_FILE="/root/server-setup-logs/server-setup.log"
 
-###### Logging Functions ######
 #######################################
+
+###### Logging Functions ######
 
 # log_info()  { echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}$*${RESET}" | tee -a "$LOG_FILE"; }
 # log_ok()    { echo -e "${GREEN}${BOLD}[OK]${RESET} ${GREEN}$*${RESET}" | tee -a "$LOG_FILE"; }
@@ -69,8 +72,9 @@ log_error() {
     echo -e "[$timestamp] ${RED}${BOLD}[ERROR]${RESET} ${RED}$*${RESET}" | tee -a "$LOG_FILE" 
 }
 
-###### Utility Functions ######
 #######################################
+
+###### Utility Functions ######
 
 require_root() {
     [[ $EUID -eq 0 ]] || {
@@ -107,8 +111,9 @@ sub_section() {
     echo -e "${BOLD}${CYAN}🔹 $*${RESET}"
 }
 
-###### System Information Functions ######
 #######################################
+
+###### System Information Functions ######
 
 get_ram_mb() {
     grep MemTotal /proc/meminfo | awk '{printf "%.0f", $2/1024}'
@@ -224,8 +229,9 @@ get_swap_status() {
     fi
 }
 
+#######################################
+
 ###### Display System Status ######
-###############################################
 
 display_system_status() {
     # Header information
@@ -379,8 +385,9 @@ display_network_info() {
 	# printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4 ($ipv6_status)"
 }
 
-###### Swap Management Core ######
 #######################################
+
+###### Swap Management Core ######
 
 swap_management_menu() {
     while true; do
@@ -497,8 +504,9 @@ setup_swap() {
     fi
 }
 
+###############################################
+
 ###### Network Tools and Optimization ######
-#######################################
 
 network_tools_menu() {
     while true; do        
@@ -703,9 +711,9 @@ restore_network_settings() {
     fi
 }
 
+#######################################
 
 ###### System Logs Optimization ######
-###############################################
 
 logs_optimization_menu() {
     section_title "System Logs Optimization"
@@ -1189,8 +1197,9 @@ remove_log_optimization() {
     log_ok "Journald service restarted with default settings"
 }
 
-###### Timezone Configuration ######
 #######################################
+
+###### Timezone Configuration ######
 
 configure_timezone() {
     section_title "Timezone Configuration"
@@ -1206,41 +1215,56 @@ configure_timezone() {
 				# ${CYAN}UTC${RESET} → Linode, DigitalOcean\n\
 				# ${CYAN}Asia/Shanghai${RESET} → LightNode"
 	
+	local col1_width=20
+    local col2_width=10
+	
 	echo -e "   ${YELLOW}Cloud billing reset times:${RESET}"
-	printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
-                "   UTC" "→ DigitalOcean, UpCloud"
-	printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
-                "   Asia/Karachi" "→ Linode"
-	printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
-                "   Asia/Shanghai" "→ LightNode"
-	printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
-                "   Location" "→ UltraHost"
+	
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   UTC"
+    printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ DigitalOcean, UpCloud"
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Asia/Karachi"
+    printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ Linode"
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Asia/Shanghai"
+    printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ LightNode"
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Default: etc/UTC"
+    printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ UltraHost"   
+	
+	# printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
+                # "   UTC" "→ DigitalOcean, UpCloud"
+	# printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
+                # "   Asia/Karachi" "→ Linode"
+	# printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
+                # "   Asia/Shanghai" "→ LightNode"
+	# printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
+                # "   Default: etc/UTC" "→ UltraHost"
 	
 	# echo -e "${YELLOW}Cloud billing reset times:${RESET}\n\
 				# Linode (${CYAN}UTC${RESET}),\n\
 				# DigitalOcean (${CYAN}UTC${RESET}),\n\
 				# LightNode (${CYAN}Asia/Shanghai${RESET})"
 	echo
-    echo "   1) UTC"
+    echo "   1) etc/UTC"
     echo "   2) Asia/Shanghai"
     echo "   3) Asia/Tokyo"
     echo "   4) Asia/Singapore"
     echo "   5) Asia/Karachi"
     echo "   6) America/New_York"
-    echo "   7) Custom input"
+    echo "   7) UTC"
+    echo "   8) Custom input"
     echo "   0) Cancel"
     echo
 
     read -rp "   Choose option [0-7]: " tz_choice
 
     case "$tz_choice" in
-        1) new_tz="UTC" ;;
+        1) new_tz="etc/UTC" ;;
         2) new_tz="Asia/Shanghai" ;;
         3) new_tz="Asia/Tokyo" ;;
         4) new_tz="Asia/Singapore" ;;
         5) new_tz="Asia/Karachi" ;;
         6) new_tz="America/New_York" ;;
-        7) read -rp "Enter custom timezone (e.g., Europe/Berlin): " new_tz
+        7) new_tz="UTC" ;;
+        8) read -rp "Enter custom timezone (e.g., Europe/Berlin): " new_tz
             if [[ -z "$new_tz" ]]; then
                 log_warn "No timezone entered. Cancelled."
                 return
@@ -1261,8 +1285,9 @@ configure_timezone() {
     pause
 }
 
-###### Server Hostname Configuration ######
 #######################################
+
+###### Server Hostname Configuration ######
 
 configure_hostname() {
     section_title "Change Server Hostname"
@@ -1335,8 +1360,9 @@ configure_hostname() {
     pause
 }
 
+###############################################
+
 ###### Package Management ######
-#######################################
 
 install_packages() {
     section_title "Package Installation"
@@ -1530,8 +1556,9 @@ benchmark_menu() {
     done
 }
 
-###### Generic Command Runner Function ######
 ###############################################
+
+###### Generic Command Runner Function ######
 
 run_generic_command() {
     local command_name="$1"
@@ -1603,8 +1630,9 @@ run_generic_command() {
     fi
 }
 
+########################################################
+
 ###### Benchmark Functions using Generic Runner ######
-######################################################
 
 run_backbone_check_1() {
     run_generic_command \
@@ -1757,8 +1785,9 @@ run_speedtest() {
     esac
 }
 
+#######################################
+
 ###### Media Check Functions using Generic Runner ######
-########################################################
 
 check_media_unlock_1() {
     run_generic_command \
@@ -1787,10 +1816,9 @@ check_media_quality() {
         "Check.Place"
 }
 
-
+#######################################
 
 ###### Quick Setup ######
-#######################################
 
 quick_setup_full() {
     section_title "Quick Server Setup"
@@ -1882,10 +1910,9 @@ quick_setup_partial() {
     pause
 }
 
-
+#######################################
 
 ###### Main Menu ######
-#######################################
 
 main_menu() {
     while true; do
@@ -1896,8 +1923,8 @@ main_menu() {
 		echo
         
         # Two columns with fixed width
-        col1_width=25
-        col2_width=25
+        local col1_width=25
+        local col2_width=25
         
         # Color scheme by category:
         # SETUP = Orange, SOFTWARE = Yellow, SYSTEM = Cyan
@@ -1950,9 +1977,9 @@ main_menu() {
     done
 }
 
+#######################################
 
 ###### Main Execution ######
-#######################################
 
 main() {
     require_root
