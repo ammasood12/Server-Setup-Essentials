@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.1"
+VERSION="v2.5.2"
 set -euo pipefail
 
 #######################################
@@ -1423,6 +1423,10 @@ install_packages() {
     pause
 }
 
+###############################################
+
+###### System Update Function ######
+
 run_system_update_enhanced() {
     section_title "System Update & Upgrade"
     
@@ -1514,49 +1518,108 @@ run_system_update_enhanced() {
     pause
 }
 
+####################################################
 
 ###### Combined Benchmark & Media Check Menu ######
-####################################################
 
 benchmark_menu() {
     while true; do
         section_title "Benchmark & Media Checking Tools"
         echo -e "${CYAN}Collection of useful online benchmarking and testing tools:${RESET}"
         echo
-        echo -e "   ── ${YELLOW}Benchmark Tools${RESET} ──────────────────────────────"
-        echo "   1) BackBone Check 1 (ludashi2020/backtrace)"
-        echo "   2) BackBone Check 2 (route.f2k.pub)"
+        echo -e "   ── ${YELLOW}Full Benchmark Tools${RESET} ──────────────────────────────"        
+        echo "   1) YABS (Yet Another Benchmark Script)"
+        echo "   2) Speedtest (from Ookla)"
         echo "   3) Bench.sh (Full System Benchmark)"
-        echo "   4) YABS (Yet Another Benchmark Script)"
-        echo "   5) Speedtest (from Ookla)"
-        echo -e "   ── ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
-        echo "   6) Check Media 1 (Check.Unlock.Media)"
-        echo "   7) Check Media 2 (Media.Check.Place)"
-        echo "   8) Check Media Quality (Check.Place)"
+        echo 
+        echo "   4) spiritLHLS/ecs Full Check (bash.spiritlhl.net/ecs)"
+        
+		echo -e "   ── ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
+		
+		echo "   5) BackBone Check 1 (ludashi2020/backtrace)"
+        echo "   6) BackBone Check 2 (route.f2k.pub)"
+		
+        echo "   7) Check Media 1 (Check.Unlock.Media)"
+        echo "   8) Check Media 2 (Media.Check.Place)"
+        echo "   9) Check Media Quality (Check.Place)"
         echo -e "   ─────────────────────────────────────────────────"		
-        echo "   9) Check System Detailed Information"
+        echo "   10) Check System Detailed Information"
 		echo
         echo "   0) Back to Main Menu"
         echo
         
         read -rp "   Choose option [0-8]: " choice
-        case $choice in
-            1) run_backbone_check_1; pause ;;
-            2) run_backbone_check_2; pause ;;
-            3) run_bench_sh; pause ;;
-            4) run_yabs; pause ;;
-            5) run_speedtest; pause ;;
-            6) check_media_unlock_1; pause ;;
-            7) check_media_unlock_2; pause ;;
-            8) check_media_quality; pause ;;
-			9) run_check_sysinfo; pause ;;
+        case $choice in			
+            1) run_yabs; pause ;;
+            2) run_speedtest; pause ;;
+			# Template
+			# 0) run_generic_command \
+                # "NAME" \
+                # "direct, interactive, pipe, eval" \
+                # "COMMAND" \
+                # "DESCIPTION" \
+                # "SOURCE_INFO";
+				# pause ;;
+            3) run_generic_command \
+                "Bench.sh" \
+				"interactive" \
+				"wget -qO- bench.sh | bash" \
+				"Classic interactive system benchmark" \
+				"bench.sh";
+				pause ;;
+            4)  run_generic_command \
+				"spiritLHLS/ecs Check" \
+				"interactive" \
+				"bash <(wget -qO- bash.spiritlhl.net/ecs) -en" \
+				"VPS Fusion Monster Server Test Script" \
+				"bash.spiritlhl.net/ecs"; pause ;;
+            5) run_generic_command \
+                "BackBone Check 1" \
+                "interactive" \
+                "curl -sSf https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh | bash" \
+                "Interactive backbone connectivity check script" \
+                "https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh";
+				pause ;;
+            6) run_generic_command \
+                "BackBone Check 2" \
+				"interactive" \
+				"wget -q route.f2k.pub -O route && bash route && rm -f route" \
+				"Interactive backbone connectivity check script" \
+				"route.f2k.pub";
+				pause ;;
+            7) run_generic_command \
+                "Media Check 1 (unlock.media)" \
+				"interactive" \
+				"bash <(curl -L -s check.unlock.media) -E en" \
+				"Interactive media unlock status check" \
+				"check.unlock.media";
+				pause ;;			
+            8) run_generic_command \
+                "Media Check 2 (Media.Check.Place)" \
+				"interactive" \
+				"bash <(curl -sL Media.Check.Place) -E en" \
+				"Interactive media unlock status check" \
+				"Media.Check.Place";
+				pause ;;		
+            9) run_generic_command \
+                "Media Quality Check" \
+				"interactive" \
+				"bash <(curl -Ls Check.Place) -E" \
+				"Interactive media streaming quality check" \
+				"Check.Place";
+				pause ;;			
+            10) run_generic_command \
+                "Check System Detailed Information" \
+				"direct" \
+				"wget -qO - https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh | bash -s" \
+				"Non-interactive system information check script" \
+				"https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh";
+				pause ;;
             0) return ;;
             *) log_warn "Invalid choice"; pause ;;
         esac
     done
 }
-
-###############################################
 
 ###### Generic Command Runner Function ######
 
@@ -1630,45 +1693,7 @@ run_generic_command() {
     fi
 }
 
-########################################################
-
 ###### Benchmark Functions using Generic Runner ######
-
-run_backbone_check_1() {
-    run_generic_command \
-        "BackBone Check 1" \
-        "interactive" \
-        "curl -sSf https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh | bash" \
-        "Interactive backbone connectivity check script" \
-        "https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh"
-}
-
-run_backbone_check_2() {
-    run_generic_command \
-        "BackBone Check 2" \
-        "interactive" \
-        "wget -q route.f2k.pub -O route && bash route && rm -f route" \
-        "Interactive backbone connectivity check script" \
-        "route.f2k.pub"
-}
-
-run_check_sysinfo() {
-    run_generic_command \
-        "Check System Detailed Information" \
-        "direct" \
-        "wget -qO - https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh | bash -s" \
-        "Non-interactive system information check script" \
-        "https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh"
-}
-
-run_bench_sh() {
-    run_generic_command \
-        "Bench.sh" \
-        "interactive" \
-        "wget -qO- bench.sh | bash" \
-        "Classic interactive system benchmark" \
-        "bench.sh"
-}
 
 run_yabs() {
     section_title "Running YABS (Yet Another Benchmark Script)"
@@ -1785,36 +1810,6 @@ run_speedtest() {
     esac
 }
 
-#######################################
-
-###### Media Check Functions using Generic Runner ######
-
-check_media_unlock_1() {
-    run_generic_command \
-        "Media Check 1 (unlock.media)" \
-        "interactive" \
-        "bash <(curl -L -s check.unlock.media) -E en" \
-        "Interactive media unlock status check" \
-        "check.unlock.media"
-}
-
-check_media_unlock_2() {
-    run_generic_command \
-        "Media Check 2 (Media.Check.Place)" \
-        "interactive" \
-        "bash <(curl -sL Media.Check.Place) -E en" \
-        "Interactive media unlock status check" \
-        "Media.Check.Place"
-}
-
-check_media_quality() {
-    run_generic_command \
-        "Media Quality Check" \
-        "interactive" \
-        "bash <(curl -Ls Check.Place) -E" \
-        "Interactive media streaming quality check" \
-        "Check.Place"
-}
 
 #######################################
 
@@ -1976,10 +1971,6 @@ main_menu() {
         esac
     done
 }
-
-#######################################
-
-###### Main Execution ######
 
 main() {
     require_root
