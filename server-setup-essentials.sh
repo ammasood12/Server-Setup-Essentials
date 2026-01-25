@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.2"
+VERSION="v2.5.3"
 set -euo pipefail
 
 #######################################
@@ -1528,10 +1528,10 @@ benchmark_menu() {
         echo -e "${CYAN}Collection of useful online benchmarking and testing tools:${RESET}"
         echo
         echo -e "   ── ${YELLOW}Full Benchmark Tools${RESET} ──────────────────────────────"        
-        echo "   1) YABS (Yet Another Benchmark Script)"
+        
+		echo "   1) YABS (Yet Another Benchmark Script)"
         echo "   2) Speedtest (from Ookla)"
         echo "   3) Bench.sh (Full System Benchmark)"
-        echo 
         echo "   4) spiritLHLS/ecs Full Check (bash.spiritlhl.net/ecs)"
         
 		echo -e "   ── ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
@@ -1555,7 +1555,7 @@ benchmark_menu() {
 			# Template
 			# 0) run_generic_command \
                 # "NAME" \
-                # "direct, interactive, pipe, eval" \
+                # "direct, interactive, pipe, eval, exec" \
                 # "COMMAND" \
                 # "DESCIPTION" \
                 # "SOURCE_INFO";
@@ -1569,7 +1569,7 @@ benchmark_menu() {
 				pause ;;
             4)  run_generic_command \
 				"spiritLHLS/ecs Check" \
-				"interactive" \
+				"exec" \
 				"bash <(wget -qO- bash.spiritlhl.net/ecs) -en" \
 				"VPS Fusion Monster Server Test Script" \
 				"bash.spiritlhl.net/ecs"; pause ;;
@@ -1643,6 +1643,10 @@ run_generic_command() {
     echo -e "${YELLOW}Command: $command${RESET}"
     echo
     
+	if [[ "$command_type" == "exec" ]]; then
+		echo -e "${RED}Note: This will exit this menu and run the external script directly.${RESET}"		
+	fi
+	
     read -rp "   Are you sure you want to continue? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Cancelled"; return 1; }
     
@@ -1676,6 +1680,11 @@ run_generic_command() {
             eval "$command"
             exit_code=$?
             echo -e "${CYAN}════════════════════════════════════════════════════════════════════${RESET}"
+            ;;
+        "exec")
+            # For running outside the script
+			log_info "Exiting menu and executing: $command"
+			exec bash -c "$command"
             ;;
         *)
             log_error "Unknown command type: $command_type"
