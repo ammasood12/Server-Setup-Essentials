@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.2"
+VERSION="v2.5.3"
 set -euo pipefail
 
 #######################################
@@ -39,12 +39,184 @@ readonly MIN_SAFE_RAM_MB=100
 readonly DEFAULT_TIMEZONE="Asia/Shanghai"
 # readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "git" "unzip" "screen" "speedtest-cli" "traceroute" "ethtool")
 # readonly NETWORK_PACKAGES=("speedtest-cli" "traceroute" "ethtool" "net-tools" "dnsutils" "iptables-persistent")
-readonly BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
-readonly NETWORK_PACKAGES=("vnstat")
+# BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
+# NETWORK_PACKAGES=("vnstat")
 LOG_DIR="/root/server-setup-logs/"
 mkdir -p "$LOG_DIR" 
 # readonly LOG_FILE="/root/server-setup-logs/server-setup-$(date +%Y%m%d-%H%M%S).log"
 readonly LOG_FILE="/root/server-setup-logs/server-setup.log"
+
+
+
+# Check if command exists and install if not
+ensure_command() {
+    local cmd="$1"
+    local pkg="${2:-$1}"
+    
+    if ! command -v "$cmd" &>/dev/null; then
+        log_info "Command '$cmd' not found, installing '$pkg'..."
+        pkg_install "$pkg"
+    fi
+}
+
+# Install specific tools needed for the script
+install_script_dependencies() {
+    # Just ensure bc is available for calculations
+    ensure_command "bc" "bc"
+    
+    # For Debian, ensure lsb_release
+    if [[ "$OS_TYPE" == "debian" ]]; then
+        ensure_command "lsb_release" "lsb-release"
+    fi
+}
+
+
+
+#######################################
+
+###### OS Detection & Package Manager ######
+
+detect_os() {
+    if [[ -f /etc/debian_version ]]; then
+        echo "debian"
+    elif [[ -f /etc/redhat-release ]] || [[ -f /etc/centos-release ]]; then
+        echo "centos"
+    elif [[ -f /etc/almalinux-release ]] || [[ -f /etc/rocky-release ]]; then
+        echo "centos"  # Treat AlmaLinux/Rocky as CentOS
+    else
+        echo "unknown"
+    fi
+}
+
+detect_package_manager() {
+    if command -v apt &>/dev/null; then
+        echo "apt"
+    elif command -v yum &>/dev/null; then
+        echo "yum"
+    elif command -v dnf &>/dev/null; then
+        echo "dnf"
+    else
+        echo "unknown"
+    fi
+}
+
+OS_TYPE=$(detect_os)
+PKG_MANAGER=$(detect_package_manager)
+
+# Package name mappings
+init_package_lists() {
+    if [[ "$OS_TYPE" == "debian" ]]; then
+        # Debian/Ubuntu packages
+        BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
+        NETWORK_PACKAGES=("vnstat" "net-tools" "dnsutils" "iputils-ping" "traceroute")
+        LOG_OPTIMIZATION_PACKAGES=("systemd-journal-remote" "logrotate")
+        EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest-cli" "bc")
+    else
+        # CentOS/RHEL/AlmaLinux/Rocky packages
+        BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq" "bc")
+        NETWORK_PACKAGES=("vnstat" "net-tools" "bind-utils" "iputils" "traceroute")
+        LOG_OPTIMIZATION_PACKAGES=()  # Usually pre-installed with systemd
+        EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest" "epel-release")
+        
+        # Note: Don't install EPEL here, let the individual functions handle it
+        # to avoid interrupting the script flow
+    fi
+    
+    # Export as readonly after setting
+    readonly BASE_PACKAGES
+    readonly NETWORK_PACKAGES
+    readonly LOG_OPTIMIZATION_PACKAGES
+    readonly EXTRA_PACKAGES
+}
+
+# Call this function early
+init_package_lists
+
+#######################################
+
+###### Package Management Wrappers ######
+
+pkg_update() {
+    log_info "Updating package lists..."
+    case "$PKG_MANAGER" in
+        apt)
+            apt update -y
+            ;;
+        yum)
+            yum check-update -y || true  # yum returns exit code 100 if updates available
+            ;;
+        dnf)
+            dnf check-update -y || true
+            ;;
+    esac
+}
+
+pkg_upgrade() {
+    log_info "Upgrading packages..."
+    case "$PKG_MANAGER" in
+        apt)
+            DEBIAN_FRONTEND=noninteractive apt upgrade -y
+            ;;
+        yum|dnf)
+            $PKG_MANAGER update -y
+            ;;
+    esac
+}
+
+pkg_install() {
+    local packages=("$@")
+    log_info "Installing packages: ${packages[*]}"
+    
+    case "$PKG_MANAGER" in
+        apt)
+            apt install -y "${packages[@]}"
+            ;;
+        yum|dnf)
+            $PKG_MANAGER install -y "${packages[@]}"
+            ;;
+    esac
+}
+
+pkg_remove() {
+    local packages=("$@")
+    log_info "Removing packages: ${packages[*]}"
+    
+    case "$PKG_MANAGER" in
+        apt)
+            apt remove -y "${packages[@]}"
+            ;;
+        yum|dnf)
+            $PKG_MANAGER remove -y "${packages[@]}"
+            ;;
+    esac
+}
+
+pkg_autoremove() {
+    log_info "Cleaning up unnecessary packages..."
+    case "$PKG_MANAGER" in
+        apt)
+            apt autoremove -y --purge
+            ;;
+        yum)
+            yum autoremove -y
+            ;;
+        dnf)
+            dnf autoremove -y
+            ;;
+    esac
+}
+
+pkg_search() {
+    local package="$1"
+    case "$PKG_MANAGER" in
+        apt)
+            apt-cache search "$package"
+            ;;
+        yum|dnf)
+            $PKG_MANAGER search "$package"
+            ;;
+    esac
+}
 
 #######################################
 
@@ -229,6 +401,17 @@ get_swap_status() {
     fi
 }
 
+get_os_info() {
+    if [[ "$OS_TYPE" == "debian" ]]; then
+        OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    else
+        OS=$(cat /etc/redhat-release 2>/dev/null || cat /etc/centos-release 2>/dev/null || \
+             cat /etc/almalinux-release 2>/dev/null || cat /etc/rocky-release 2>/dev/null || \
+             grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    fi
+    echo "$OS"
+}
+
 #######################################
 
 ###### Display System Status ######
@@ -317,7 +500,8 @@ display_traffic_info() {
 
 display_system_info() {
     local HOSTNAME=$(hostname -f 2>/dev/null || hostname)
-    local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    # local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    local OS=$(get_os_info)
     local KERNEL=$(uname -r)
     local CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/\<Processor\>//g' | xargs)
     local CORES=$(nproc)
@@ -535,11 +719,18 @@ network_tools_menu() {
 
 install_network_tools() {
     sub_section "Installing Network Tools"
+    
+    # Install EPEL on CentOS if not present
+    if [[ "$OS_TYPE" == "centos" ]] && [[ "$PKG_MANAGER" == "yum" ]] && ! rpm -q epel-release &>/dev/null; then
+        log_info "Installing EPEL repository..."
+        yum install -y epel-release
+    fi
+    
     log_info "Updating package lists..."
-    apt update -y >/dev/null 2>&1
+    pkg_update
     
     log_info "Installing network diagnostic tools..."
-    if apt install -y "${NETWORK_PACKAGES[@]}" >/dev/null 2>&1; then
+    if pkg_install "${NETWORK_PACKAGES[@]}"; then
         log_ok "Network tools installed successfully"
     else
         log_error "Failed to install some network tools"
@@ -760,7 +951,7 @@ optimize_system_logs() {
     # Install required packages
     sub_section "Step 1: Installing Required Packages"
     log_info "Installing log optimization tools..."
-    if apt update -y && apt install -y "${LOG_OPTIMIZATION_PACKAGES[@]}"; then
+    if pkg_update && pkg_install "${LOG_OPTIMIZATION_PACKAGES[@]}"; then
         log_ok "Log optimization tools installed successfully"
     else
         log_error "Failed to install some packages"
@@ -1376,21 +1567,32 @@ install_packages() {
     echo "   0) Cancel"
     echo
     
-    read -rp "   Choose option [0-6]: " pkg_choice  # Changed to 6
+    read -rp "   Choose option [0-6]: " pkg_choice 
     
     local packages=()
-    local run_update=false
+    # local run_update=false
     
     case $pkg_choice in
         1) packages=("curl" "wget" "nano" "htop" "vnstat") ;;
         2) packages=("git" "unzip" "screen") ;;
-        3) packages=("${NETWORK_PACKAGES[@]}") ;;
+        3) 
+            if [[ "$OS_TYPE" == "debian" ]]; then
+                packages=("speedtest-cli" "traceroute" "net-tools" "dnsutils")
+            else
+                packages=("speedtest" "traceroute" "net-tools" "bind-utils")
+            fi
+            ;;
         4) 
-            # Run system update and return
             run_system_update_enhanced
             return
             ;;
-        5) packages=("${BASE_PACKAGES[@]}") ;;
+        5) 
+            packages=("${BASE_PACKAGES[@]}")
+            # Add extra packages based on OS
+            if [[ "$OS_TYPE" == "centos" ]] && [[ ! " ${packages[*]} " =~ " epel-release " ]]; then
+                packages+=("epel-release")
+            fi
+            ;;
         6) 
             echo "Enter package names separated by spaces:"
             read -r -a packages
@@ -1405,7 +1607,6 @@ install_packages() {
             ;;
     esac
     
-    # If we get here and packages array is empty (shouldn't happen but as safety)
     if [[ ${#packages[@]} -eq 0 ]]; then 
         log_warn "No packages selected"
         return
@@ -1415,11 +1616,8 @@ install_packages() {
     read -rp "Proceed with installation? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Installation cancelled"; return; }
     
-    log_info "Updating package lists..."
-    apt update -y || { log_error "Failed to update package lists"; return; }
-    
-    log_info "Installing packages..."
-    apt install -y "${packages[@]}" && log_ok "Packages installed successfully" || log_error "Some packages failed to install"
+    pkg_update
+    pkg_install "${packages[@]}" && log_ok "Packages installed successfully" || log_error "Some packages failed to install"
     pause
 }
 
@@ -1431,90 +1629,39 @@ run_system_update_enhanced() {
     section_title "System Update & Upgrade"
     
     echo -e "${YELLOW}This will perform the following actions:${RESET}"
-    echo "  🔄 Update package lists (apt update)"
-    echo "  ⬆️  Upgrade installed packages (apt upgrade)"
-    echo "  🧹 Clean up unnecessary packages (autoremove)"
+    echo "  🔄 Update package lists"
+    echo "  ⬆️  Upgrade installed packages"
+    echo "  🧹 Clean up unnecessary packages"
     echo
     
     read -rp "   Proceed with system update? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Update cancelled"; return 1; }
     
-    # Function to show progress
-    show_progress() {
-        local pid=$1
-        local message=$2
-        local delay=0.5
-        local spinstr='|/-\'
-        
-        echo -n "   $message "
-        while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-            local temp=${spinstr#?}
-            printf " [%c]  " "$spinstr"
-            local spinstr=$temp${spinstr%"$temp"}
-            sleep $delay
-            printf "\b\b\b\b\b\b"
-        done
-        printf "    \b\b\b\b"
-    }
-    
     # Update package lists
-    log_info "Updating package lists..."
-    apt update -y > /tmp/update.log 2>&1 &
-    update_pid=$!
-    show_progress $update_pid "Updating package lists..."
-    wait $update_pid
-    if grep -q "E:" /tmp/update.log; then
-        log_error "Failed to update package lists"
-        echo -e "${YELLOW}Error details:${RESET}"
-        tail -n 10 /tmp/update.log
-        return 1
-    else
-        log_ok "Package lists updated successfully"
-    fi
+    sub_section "Step 1: Updating Package Lists"
+    pkg_update
     
     # Upgrade packages
-    echo
-    log_info "Upgrading installed packages..."
+    sub_section "Step 2: Upgrading Packages"
     echo -e "${YELLOW}Note: This may take several minutes...${RESET}"
-    DEBIAN_FRONTEND=noninteractive apt upgrade -y > /tmp/upgrade.log 2>&1 &
-    upgrade_pid=$!
-    show_progress $upgrade_pid "Upgrading packages..."
-    wait $upgrade_pid
-    
-    # Check for errors
-    if grep -q "E:" /tmp/upgrade.log; then
-        log_warn "Some packages failed to upgrade"
-    else
-        log_ok "Packages upgraded successfully"
-    fi
-    
-    # Show upgrade summary
-    echo
-    log_info "Update Summary:"
-    local upgraded=$(grep -c "^Unpacking" /tmp/upgrade.log 2>/dev/null || echo 0)
-    local installed=$(grep -c "^Setting up" /tmp/upgrade.log 2>/dev/null || echo 0)
-    echo -e "   ${CYAN}Packages unpacked:${RESET} $upgraded"
-    echo -e "   ${CYAN}Packages configured:${RESET} $installed"
+    pkg_upgrade
     
     # Cleanup
-    echo
-    log_info "Cleaning up unnecessary packages..."
-    apt autoremove -y --purge && log_ok "Cleanup completed"
+    sub_section "Step 3: Cleaning Up"
+    pkg_autoremove
     
-    # Check for reboot
-    echo
-    log_info "Checking if reboot is required..."
-    if [[ -f /var/run/reboot-required ]]; then
-        log_warn "⚠️  System reboot is required!"
-        echo -e "${YELLOW}Some kernel or system updates require a reboot.${RESET}"
-        echo -e "${YELLOW}You can reboot now or later using: sudo reboot${RESET}"
+    # Check for reboot (CentOS specific)
+    if [[ "$OS_TYPE" == "centos" ]]; then
+        if [[ -f /var/run/reboot-required ]] || needs-restarting -r 2>/dev/null | grep -q "Reboot is required"; then
+            log_warn "⚠️  System reboot is recommended!"
+        fi
     else
-        log_ok "No reboot required"
+        if [[ -f /var/run/reboot-required ]]; then
+            log_warn "⚠️  System reboot is required!"
+        fi
     fi
     
-    # Clean up temp files
-    rm -f /tmp/update.log /tmp/upgrade.log
-    
+    log_ok "System update completed successfully"
     pause
 }
 
@@ -1748,11 +1895,16 @@ run_yabs() {
 run_speedtest() {
     section_title "Running Speedtest (Ookla)"
     
-    # Check if speedtest-cli is installed
-    if ! command -v speedtest-cli >/dev/null 2>&1; then
-        log_info "speedtest-cli not found. Installing..."
-        apt update -y >/dev/null 2>&1 && apt install -y speedtest-cli >/dev/null 2>&1
-    fi
+	# Check if speedtest-cli is installed
+	if ! command -v speedtest-cli >/dev/null 2>&1; then
+		log_info "speedtest-cli not found. Installing..."
+		if [[ "$OS_TYPE" == "debian" ]]; then
+			pkg_update >/dev/null 2>&1 && pkg_install "speedtest-cli" >/dev/null 2>&1
+		else
+			# For CentOS, install from EPEL
+			pkg_update >/dev/null 2>&1 && pkg_install "speedtest" >/dev/null 2>&1
+		fi
+	fi
     
     echo "   Speedtest options:"
     echo "   1) Automatic server selection (interactive)"
@@ -1858,7 +2010,7 @@ quick_setup_full() {
     
     # Packages
     sub_section "Step 4: Package Installation"
-    apt install -y "${BASE_PACKAGES[@]}" && \
+    pkg_install "${BASE_PACKAGES[@]}" && \
 		log_ok "Packages installed successfully" || \
 		log_warn "Some packages failed to install"
     
@@ -1901,7 +2053,7 @@ quick_setup_partial() {
         
     # Packages
     sub_section "Step 3: Package Installation"
-    apt install -y "${BASE_PACKAGES[@]}" && \
+    pkg_install "${BASE_PACKAGES[@]}" && \
 		log_ok "Packages installed successfully" || \
 		log_warn "Some packages failed to install"
     
@@ -1983,18 +2135,21 @@ main_menu() {
 
 main() {
     require_root
+	install_script_dependencies
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
     
     echo "=== Server Setup Essentials $VERSION - $(date) ===" > "$LOG_FILE"
     
-    if ! [[ -f /etc/debian_version ]]; then
-        log_warn "This script is optimized for Debian-based systems"
+    # OS compatibility check
+    if [[ "$OS_TYPE" == "unknown" ]]; then
+        log_warn "This script is optimized for Debian/Ubuntu and CentOS/RHEL based systems"
         read -rp "Continue anyway? (y/N): " proceed
         [[ $proceed =~ ^[Yy]$ ]] || exit 1
     fi
+    
+    log_info "Detected OS: $OS_TYPE, Package Manager: $PKG_MANAGER"
     
     main_menu
 }
 
 main "$@"
-
