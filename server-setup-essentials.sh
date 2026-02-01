@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.3"
+VERSION="v2.5.2"
 set -euo pipefail
 
 #######################################
@@ -1997,3 +1997,4 @@ main() {
 }
 
 main "$@"
+
