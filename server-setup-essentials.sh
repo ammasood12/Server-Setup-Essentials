@@ -1222,12 +1222,14 @@ configure_timezone() {
 	
 	printf "   ${CYAN}%-${col1_width}s${RESET}" "   UTC"
     printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ DigitalOcean, UpCloud"
-	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Asia/Karachi"
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Etc/GMT+5"
     printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ Linode"
-	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Asia/Shanghai"
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Etc/GMT+16"
     printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ LightNode"
 	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Default: etc/UTC"
     printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "→ UltraHost"   
+	printf "   ${CYAN}%-${col1_width}s${RESET}" "   Other Timezones"
+    printf "   ${MAGENTA}%-${col2_width}s${RESET}\n" "Asia/Tokyo, Asia/Singapore, Asia/Karachi"   
 	
 	# printf "${CYAN}%-20s${RESET} ${MAGENTA}%-10s${RESET}\n" \
                 # "   UTC" "→ DigitalOcean, UpCloud"
@@ -1244,13 +1246,12 @@ configure_timezone() {
 				# LightNode (${CYAN}Asia/Shanghai${RESET})"
 	echo
     echo "   1) etc/UTC"
-    echo "   2) Asia/Shanghai"
-    echo "   3) Asia/Tokyo"
-    echo "   4) Asia/Singapore"
-    echo "   5) Asia/Karachi"
-    echo "   6) America/New_York"
-    echo "   7) UTC"
-    echo "   8) Custom input"
+    echo "   2) Etc/GMT+5"
+    echo "   3) Etc/GMT+16"
+    echo "   4) Asia/Shanghai"
+    echo "   5) America/New_York"
+    echo "   6) UTC"
+    echo "   7) Custom input"
     echo "   0) Cancel"
     echo
 
@@ -1258,13 +1259,12 @@ configure_timezone() {
 
     case "$tz_choice" in
         1) new_tz="etc/UTC" ;;
-        2) new_tz="Asia/Shanghai" ;;
-        3) new_tz="Asia/Tokyo" ;;
-        4) new_tz="Asia/Singapore" ;;
-        5) new_tz="Asia/Karachi" ;;
-        6) new_tz="America/New_York" ;;
-        7) new_tz="UTC" ;;
-        8) read -rp "Enter custom timezone (e.g., Europe/Berlin): " new_tz
+        2) new_tz="Etc/GMT+5" ;;
+        3) new_tz="Etc/GMT+16" ;;
+        4) new_tz="Asia/Shanghai" ;;
+        5) new_tz="America/New_York" ;;
+        6) new_tz="UTC" ;;
+        7) read -rp "Enter custom timezone (e.g., Europe/Berlin): " new_tz
             if [[ -z "$new_tz" ]]; then
                 log_warn "No timezone entered. Cancelled."
                 return
