@@ -1,6 +1,7 @@
 ## Table of Contents
 - [Server Setup Essentials](#Server-Setup-Essentials)
 - [CF DDNS Manager](#CF-DDNS-Manager)
+- [aaPanel Migration Tool](#aaPanel-Migration-Tool)
 
 # Server Setup Essentials
 
@@ -50,4 +51,32 @@ if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl;
 
 ---
 
+# aaPanel Migration Tool
+# HIGHLY RISKY (USE ON YOUR RESPONSIBILITY)
+
+A simple tool to migrate aaPanel:
+
+Requirement: Clean OS with same version
+
+### Backup Process
+- ✅ Backup aaPanel+PHP+Nginx+Database
+- ✅ Meta data for PHP extensions and other software (not all) installed on aaPanel
+### Restore Process (on Clean serveer)
+- ✅ Direct Download from old server and verify
+- ✅ install aaPanel
+- ✅ Restore PHP+Nginx+Database
+- ✅ install PHP extensions based on available Meta Data
+
+## RUN
+```
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/aapanel_migrate.sh | sed 's/\r$//')
+```
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh | sed 's/\r$//')
+```
+```
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh | sed 's/\r$//')
+```
+
+---
 
