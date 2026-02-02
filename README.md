@@ -12,8 +12,6 @@ An interactive Bash toolkit to quickly prepare a fresh Linux server (Debian/Ubun
 
 Perfect for new VPS / nodes running things like sing-box, XrayR, V2bX, etc.
 
----
-
 ## RUN
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/server-setup-essentials.sh | sed 's/\r$//')
