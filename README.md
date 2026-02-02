@@ -19,13 +19,13 @@ Perfect for new VPS / nodes running things like sing-box, XrayR, V2bX, etc.
 
 ## RUN
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/server-setup-essentials.sh | sed 's/\r$//')
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh | sed 's/\r$//')
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh | sed 's/\r$//')
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
 ```
 
 ---
@@ -40,13 +40,13 @@ A simple tool to manage CF DNS for server with NAT based servers (auto changing 
 
 ## RUN
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/cf-ddns-manager.sh | sed 's/\r$//')
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh | sed 's/\r$//')
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh | sed 's/\r$//')
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
 ```
 
 ---
@@ -69,13 +69,13 @@ Requirement: Clean OS with same version
 
 ## RUN
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/aapanel_migrate.sh | sed 's/\r$//')
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh | sed 's/\r$//')
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh | sed 's/\r$//')
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
 ```
 
 ---
