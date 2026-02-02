@@ -1,3 +1,7 @@
+## Table of Contents
+- [Server Setup Essentials](#Server-Setup-Essentials)
+- [CF DDNS Manager](#CF-DDNS-Manager)
+
 # Server Setup Essentials
 
 An interactive Bash toolkit to quickly prepare a fresh Linux server (Debian/Ubuntu, CentOS with basic functionality), with:
@@ -24,9 +28,6 @@ if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl;
 ```
 
 ---
-
-
-
 
 # CF DDNS Manager
 
