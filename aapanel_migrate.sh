@@ -5,7 +5,7 @@ set -e
 # IDENTIFICATION
 #################################
 APP_NAME="aaPanel Migration Tool"
-VERSION="1.1.5"
+VERSION="1.1.5.1"
 
 #################################
 # CONFIG
@@ -193,4 +193,5 @@ main() {
 }
 
 main "$@"
+
 
