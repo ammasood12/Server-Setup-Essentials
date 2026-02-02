@@ -26,3 +26,27 @@ if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl;
 ---
 
 
+
+
+# CF DDNS Manager
+
+A simple tool to manage CF DNS for server with NAT based servers (auto changing ips):
+
+- ✅ Add/Edit/Delete CF Records
+- ✅ Auto Update server public ip to selected sub-domain
+- ✅ Add cron job for auto updating
+
+## RUN
+```
+bash <(wget -qO- https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/refs/heads/main/cf-ddns-manager.sh | sed 's/\r$//')
+```
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh | sed 's/\r$//')
+```
+```
+if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh | sed 's/\r$//')
+```
+
+---
+
+
