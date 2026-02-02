@@ -10,8 +10,8 @@ VERSION="1.1.5.1"
 #################################
 # CONFIG
 #################################
-BACKUP_DIR="/root/aaPanel_backup"
-LOG_FILE="/root/aaPanel_backup/aapanel-migrate.log"
+BACKUP_DIR="/root/aapanel_backup"
+LOG_FILE="/root/aapanel_backup/aapanel-migrate.log"
 META_FILE="migration.json"
 PREFIX="aapanel"
 DRY_RUN=false
@@ -193,5 +193,6 @@ main() {
 }
 
 main "$@"
+
 
 
