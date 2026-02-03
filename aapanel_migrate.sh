@@ -155,7 +155,7 @@ verify_backup() {
 download_backup() {
   read -rp "Old server SSH user: " U
   read -rp "Old server host/IP: " H
-  read -rp "Backup directory on old server [default: /root/aaPanel]: " D
+  read -rp "Backup directory on old server [default: /root/aapanel_backup]: " D
   D=${D:-/root/aaPanel}
 
   REMOTE_FILE=$(ssh "$U@$H" "ls -t $D/${PREFIX}_*.tar.gz | head -n1") \
@@ -165,6 +165,8 @@ download_backup() {
   scp "$U@$H:$REMOTE_FILE.sha256" "$BACKUP_DIR/" || true
 
   echo "Downloaded backup to $BACKUP_DIR"
+  echo
+  main
 }
 
 #################################
@@ -193,7 +195,3 @@ main() {
 }
 
 main "$@"
-
-
-
-
