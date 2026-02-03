@@ -25,7 +25,8 @@ bash <(wget -qO- "https://raw.githubusercontent.com/ammasood12/Server-Setup-Esse
 bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
+apt update -y && which curl || apt install -y curl && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials.sh?$(date +%s) | sed 's/\r$//')
+
 ```
 
 ---
@@ -47,7 +48,7 @@ bash <(wget -qO- "https://raw.githubusercontent.com/ammasood12/Server-Setup-Esse
 bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
+apt update -y && which curl || apt install -y curl && which jq || apt install -y jq && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/cf-ddns-manager.sh?$(date +%s) | sed 's/\r$//')
 ```
 
 ---
@@ -76,7 +77,7 @@ bash <(wget -qO- "https://raw.githubusercontent.com/ammasood12/Server-Setup-Esse
 bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
 ```
 ```
-if ! command -v curl >/dev/null 2>&1; then apt update -y && apt install -y curl; fi && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
+apt update -y && which curl || apt install -y curl && bash <(curl -fsSL https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/aapanel_migrate.sh?$(date +%s) | sed 's/\r$//')
 ```
 
 ---
