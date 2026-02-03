@@ -434,6 +434,7 @@ echo
 echo -n "  Current Public IP: "
 curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "Could not fetch"
 echo
+echo
 # echo -e "==================== Cloudflare DNS / DDNS Manager ===================="
   cat <<'EOF'
 1) Configure (Token + Zone ID)
