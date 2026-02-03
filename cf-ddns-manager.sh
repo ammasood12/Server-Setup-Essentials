@@ -430,6 +430,10 @@ echo -e "${BOLD}${CYAN}═══════════════════
 echo -e "              	$APP_NAME $VERSION"
 echo -e "════════════════════════════════════════════════════════════════${RESET}"
 echo
+# Show current public IP
+echo -n "  Current Public IP: "
+curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "Could not fetch"
+echo
 # echo -e "==================== Cloudflare DNS / DDNS Manager ===================="
   cat <<'EOF'
 1) Configure (Token + Zone ID)
