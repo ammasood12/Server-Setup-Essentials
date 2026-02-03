@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Cloudflare DNS Manager + DDNS + Cron Manager
-# Version: 2.0.0
+# Version: 2.1.0
 #
 # What this does:
 #   - Manage Cloudflare DNS records (list/add/update/delete)
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-VERSION="v2.0"
+VERSION="v2.1"
 APP_NAME="Cloudflare Manager"
 
 # ---------------------------- Defaults / Paths ------------------------------
@@ -64,6 +64,30 @@ install_deps() {
   apt update -qq
   apt install -y curl jq cron dnsutils
   systemctl enable --now cron >/dev/null 2>&1 || true
+}
+
+# --------------------------- Dependency Check -------------------------------
+check_and_install_deps() {
+  local missing=()
+  
+  for cmd in curl jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      missing+=("$cmd")
+    fi
+  done
+  
+  # Check for cron service (not just the command)
+  if ! systemctl is-active cron >/dev/null 2>&1 && ! service cron status >/dev/null 2>&1; then
+    missing+=("cron")
+  fi
+  
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    warn "Missing dependencies: ${missing[*]}"
+    log "Installing missing dependencies..."
+    install_deps
+  else
+    log "All dependencies are already installed"
+  fi
 }
 
 # ------------------------------ Config --------------------------------------
@@ -459,8 +483,7 @@ echo -e "${BOLD}${CYAN}═══════════════════
 
 main() {
   require_root
-  need_bin curl
-  need_bin jq
+  check_and_install_deps  
 
   while true; do
     menu
