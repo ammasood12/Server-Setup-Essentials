@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Cloudflare DNS Manager + DDNS + Cron Manager
-# Version: 2.1.0
+# Version: 2.2.0
 #
 # What this does:
 #   - Manage Cloudflare DNS records (list/add/update/delete)
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-VERSION="v2.1"
+VERSION="v2.2"
 APP_NAME="Cloudflare Manager"
 
 # ---------------------------- Defaults / Paths ------------------------------
@@ -37,6 +37,9 @@ CF_API="https://api.cloudflare.com/client/v4"
 CONF_PATH="/etc/cf-manager.conf"
 UPDATER_PATH="/usr/local/bin/cf-ddns.sh"
 CRON_LOG="/var/log/cf-ddns.log"
+
+# Get current public IP once at startup
+CURRENT_IP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "")"
 
 # Defaults for new records / updates
 DEFAULT_TTL=120
@@ -220,7 +223,16 @@ dns_create() {
   read -rp "Type (A/AAAA/CNAME/TXT) [A]: " TYPE
   TYPE="${TYPE:-A}"
   read -rp "Name (full hostname, e.g. sub.example.com): " NAME
-  read -rp "Content (IP/target/text e.g. 0.0.0.0): " CONTENT
+  # read -rp "Content (IP/target/text e.g. 0.0.0.0): " CONTENT
+  
+  # Show current IP as default for A records
+  if [[ "$TYPE" == "A" && -n "$CURRENT_IP" ]]; then
+    read -rp "Content (IP/target/text e.g. 0.0.0.0) [$CURRENT_IP]: " CONTENT
+    CONTENT="${CONTENT:-$CURRENT_IP}"
+  else
+    read -rp "Content (IP/target/text e.g. 0.0.0.0): " CONTENT
+  fi
+  
   read -rp "TTL seconds [${DEFAULT_TTL}]: " TTL
   TTL="${TTL:-$DEFAULT_TTL}"
   read -rp "Proxied (true/false) [${DEFAULT_PROXIED}]: " PROXIED
@@ -455,8 +467,12 @@ echo -e "              	$APP_NAME $VERSION"
 echo -e "════════════════════════════════════════════════════════════════${RESET}"
 echo
 # Show current public IP
-echo -n "  Current Public IP: "
-curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "Could not fetch"
+  echo -n "  Current Public IP: "
+  if [ -n "$CURRENT_IP" ]; then
+    echo "$CURRENT_IP"
+  else
+    echo "Could not fetch"
+  fi
 echo
 echo
 # echo -e "==================== Cloudflare DNS / DDNS Manager ===================="
