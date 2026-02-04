@@ -10,7 +10,7 @@
 #
 # Where to get values:
 #   API Token:
-#     Cloudflare Dashboard → My Profile → API Tokens → Create Token
+#     Cloudflare Dashboard → My Profile → API Tokens → f Token
 #     Template: Edit zone DNS
 #     Permissions:
 #       - Zone → DNS → Edit
@@ -220,7 +220,7 @@ dns_create() {
   read -rp "Type (A/AAAA/CNAME/TXT) [A]: " TYPE
   TYPE="${TYPE:-A}"
   read -rp "Name (full hostname, e.g. sub.example.com): " NAME
-  read -rp "Content (IP/target/text): " CONTENT
+  read -rp "Content (IP/target/text e.g. 0.0.0.0): " CONTENT
   read -rp "TTL seconds [${DEFAULT_TTL}]: " TTL
   TTL="${TTL:-$DEFAULT_TTL}"
   read -rp "Proxied (true/false) [${DEFAULT_PROXIED}]: " PROXIED
