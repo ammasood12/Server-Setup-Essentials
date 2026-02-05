@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Cloudflare DNS Manager + DDNS + Cron Manager
-# Version: 2.2.0
+# Version: 2.3.0
 #
 # What this does:
 #   - Manage Cloudflare DNS records (list/add/update/delete)
@@ -25,11 +25,12 @@
 #   - Config saved in: /etc/cf-manager.conf
 #   - Updater script installed to: /usr/local/bin/cf-ddns.sh
 #   - Cron log (optional): /var/log/cf-ddns.log
+#   - IP change log: /root/ip-change.log
 # ==============================================================================
 
 set -euo pipefail
 
-VERSION="v2.2"
+VERSION="v2.3"
 APP_NAME="Cloudflare Manager"
 
 # ---------------------------- Defaults / Paths ------------------------------
@@ -37,6 +38,7 @@ CF_API="https://api.cloudflare.com/client/v4"
 CONF_PATH="/etc/cf-manager.conf"
 UPDATER_PATH="/usr/local/bin/cf-ddns.sh"
 CRON_LOG="/var/log/cf-ddns.log"
+IP_CHANGE_LOG="/root/ip-change.log"
 
 # Get current public IP once at startup
 CURRENT_IP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "")"
@@ -375,6 +377,10 @@ ddns_write_updater() {
   local rid
   rid="$(ddns_ensure_record "$HOST")"
 
+  # Create log file with proper permissions
+  touch "$IP_CHANGE_LOG"
+  chmod 600 "$IP_CHANGE_LOG"
+
   cat > "$UPDATER_PATH" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -384,6 +390,7 @@ CF_TOKEN="$CF_TOKEN"
 ZONE_ID="$ZONE_ID"
 RECORD_ID="$rid"
 RECORD_NAME="$HOST"
+LOG_FILE="$IP_CHANGE_LOG"
 
 get_public_ipv4() {
   local ip=""
@@ -395,6 +402,13 @@ get_public_ipv4() {
   return 1
 }
 
+log_change() {
+  local old_ip="\$1"
+  local new_ip="\$2"
+  local timestamp="\$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  echo "[\$timestamp] IP changed from \$old_ip to \$new_ip for \$RECORD_NAME" >> "\$LOG_FILE"
+}
+
 IP=\$(get_public_ipv4 || true)
 [[ -z "\${IP:-}" ]] && exit 0
 
@@ -404,6 +418,9 @@ OLD_IP=\$(curl -fsS -X GET "\$CF_API/zones/\$ZONE_ID/dns_records/\$RECORD_ID" \\
 
 [[ "\$IP" == "\$OLD_IP" ]] && exit 0
 
+# Log the IP change
+log_change "\$OLD_IP" "\$IP"
+
 payload=\$(jq -nc --arg type "A" --arg name "\$RECORD_NAME" --arg content "\$IP" --argjson ttl $DEFAULT_TTL --argjson proxied $DEFAULT_PROXIED \\
   '{type:\$type,name:\$name,content:\$content,ttl:\$ttl,proxied:\$proxied}')
 
@@ -411,11 +428,15 @@ curl -fsS -X PUT "\$CF_API/zones/\$ZONE_ID/dns_records/\$RECORD_ID" \\
   -H "Authorization: Bearer \$CF_TOKEN" \\
   -H "Content-Type: application/json" \\
   --data "\$payload" >/dev/null
+
+# Also log to syslog for system-wide logging
+logger -t cf-ddns "IP changed from \$OLD_IP to \$IP for \$RECORD_NAME"
 EOF
 
   chmod +x "$UPDATER_PATH"
   log "Updater written to $UPDATER_PATH"
   log "DDNS target: $HOST (Record ID: $rid)"
+  log "IP change log will be saved to: $IP_CHANGE_LOG"
 }
 
 ddns_run_once() {
@@ -442,6 +463,7 @@ cron_install() {
 
   log "Cron installed: every $MIN minutes"
   log "Log file: $CRON_LOG"
+  log "IP change log: $IP_CHANGE_LOG"
 }
 
 cron_view() {
