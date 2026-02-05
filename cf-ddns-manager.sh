@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Cloudflare DNS Manager + DDNS + Cron Manager
-# Version: 2.3.0
+# Version: 2.4.0
 #
 # What this does:
 #   - Manage Cloudflare DNS records (list/add/update/delete)
@@ -30,7 +30,7 @@
 
 set -euo pipefail
 
-VERSION="v2.3"
+VERSION="v2.4"
 APP_NAME="Cloudflare Manager"
 
 # ---------------------------- Defaults / Paths ------------------------------
@@ -421,8 +421,11 @@ OLD_IP=\$(curl -fsS -X GET "\$CF_API/zones/\$ZONE_ID/dns_records/\$RECORD_ID" \\
 # Log the IP change
 log_change "\$OLD_IP" "\$IP"
 
-payload=\$(jq -nc --arg type "A" --arg name "\$RECORD_NAME" --arg content "\$IP" --argjson ttl $DEFAULT_TTL --argjson proxied $DEFAULT_PROXIED \\
-  '{type:\$type,name:\$name,content:\$content,ttl:\$ttl,proxied:\$proxied}')
+# Create comment with timestamp and IP change
+COMMENT="CHANGED: \$(date '+%Y-%m-%d %H:%M:%S') - \$OLD_IP → \$IP"
+
+payload=\$(jq -nc --arg type "A" --arg name "\$RECORD_NAME" --arg content "\$IP" --argjson ttl $DEFAULT_TTL --argjson proxied $DEFAULT_PROXIED --arg comment "\$COMMENT" \\
+  '{type:\$type,name:\$name,content:\$content,ttl:\$ttl,proxied:\$proxied,comment:\$comment}')
 
 curl -fsS -X PUT "\$CF_API/zones/\$ZONE_ID/dns_records/\$RECORD_ID" \\
   -H "Authorization: Bearer \$CF_TOKEN" \\
