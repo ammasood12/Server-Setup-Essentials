@@ -406,7 +406,7 @@ log_change() {
   local old_ip="\$1"
   local new_ip="\$2"
   local timestamp="\$(date '+%Y-%m-%d %H:%M:%S %Z')"
-  echo "[\$timestamp] IP changed from \$old_ip to \$new_ip for \$RECORD_NAME" >> "\$LOG_FILE"
+  echo "[\$timestamp] CHANGED: \$old_ip -> \$new_ip for \$RECORD_NAME" >> "\$LOG_FILE"
 }
 
 IP=\$(get_public_ipv4 || true)
@@ -501,17 +501,17 @@ echo
   cat <<'EOF'
 1) Configure (Token + Zone ID)
 
-Configure DNS
-2) List records        4) Update record
-3) Create record       5) Delete record
-
 Configure DDNS (AUTO update ip to cloudflare)
-6) Install/Update updater script
-7) Run updater once
+2) Install/Update updater script
+3) Run updater once
 
 CRON Job
-8) Install DDNS cron
-9) View crontab       10) Remove DDNS cron
+4) Install DDNS cron
+5) View crontab       6) Remove DDNS cron
+
+Configure Cloudflare DNS
+7) List records        8) Update record
+9) Create record      10) Delete record
 
 0) Exit
 
@@ -528,15 +528,15 @@ main() {
     read -rp "Choose: " CH
     case "$CH" in
       1) prompt_conf ;;
-      2) dns_list ;;
-      3) dns_create ;;
-      4) dns_update ;;
-      5) dns_delete ;;
-      6) ddns_write_updater ;;
-      7) ensure_conf; ddns_run_once ;;
-      8) ensure_conf; cron_install ;;
-      9) cron_view ;;
-      10) cron_remove ;;
+      2) ddns_write_updater ;;
+      3) ensure_conf; ddns_run_once ;;
+      4) ensure_conf; cron_install ;;
+      5) cron_view ;;
+      6) cron_remove ;;
+      7) dns_list ;;
+      8) dns_create ;;
+      9) dns_update ;;
+      10) dns_delete ;;
       0) exit 0 ;;
       *) warn "Invalid option." ;;
     esac
