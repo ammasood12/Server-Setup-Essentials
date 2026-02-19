@@ -169,6 +169,7 @@ pkg_install() {
     
     case "$PKG_MANAGER" in
         apt)
+			apt update
             apt install -y "${packages[@]}"
             ;;
         yum|dnf)
