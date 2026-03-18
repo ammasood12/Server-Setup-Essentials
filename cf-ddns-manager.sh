@@ -513,8 +513,8 @@ CRON Job
 5) View crontab       6) Remove DDNS cron
 
 Configure Cloudflare DNS
-7) List records        8) Update record
-9) Create record      10) Delete record
+7) List records        9) Update record
+8) Create record      10) Delete record
 
 0) Exit
 
