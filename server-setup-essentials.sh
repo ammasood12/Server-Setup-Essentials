@@ -1002,7 +1002,7 @@ Seal=yes
 #############################################
 # Allow at most 5000 messages every 30 seconds
 RateLimitIntervalSec=30s
-RateLimitBurst=5000
+RateLimitBurst=10000
 
 #############################################
 # DISK USAGE LIMITS (Most important for small VPS)
