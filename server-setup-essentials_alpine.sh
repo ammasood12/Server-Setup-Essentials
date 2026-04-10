@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.5-alpine"
+VERSION="v2.5.5.2-alpine"
 set -euo pipefail
 
 #######################################
