@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.5.2-alpine"
+VERSION="v2.5.5-alpine"
 set -euo pipefail
 
 #######################################
@@ -479,36 +479,32 @@ display_bandwidth_info() {
 }
 
 display_traffic_info() {
-    # Get system uptime in seconds (Alpine/BusyBox compatible)
     local uptime_seconds=$(awk '{print int($1)}' /proc/uptime)
     local boot_days=$((uptime_seconds / 86400))
     
-    ip -s link | awk -v boot_days="$boot_days" '
-    function human(x){
-        split("B KB MB GB TB",u);
-        i=1;
-        while(x>=1024&&i<5){
-            x/=1024;
-            i++
-        }
-        return sprintf("%.2f %s",x,u[i])
-    } 
-    /^[0-9]+:/{
-        iface=$2;
-        gsub(":","",iface)
-    } 
-    /RX:/{
-        getline;
-        rx=$1
-    } 
-    /TX:/{
-        getline;
-        tx=$1;
-        if(iface != "lo") {
-            total=rx+tx;
-            printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n", "Server", iface, boot_days " days", human(rx), human(tx), human(total)
-        }
-    }' | head -3
+    human() {
+        local bytes=$1
+        if [[ $bytes -ge 1073741824 ]]; then
+            echo "$(echo "scale=2; $bytes/1073741824" | bc) GiB"
+        elif [[ $bytes -ge 1048576 ]]; then
+            echo "$(echo "scale=2; $bytes/1048576" | bc) MiB"
+        elif [[ $bytes -ge 1024 ]]; then
+            echo "$(echo "scale=2; $bytes/1024" | bc) KiB"
+        else
+            echo "${bytes} B"
+        fi
+    }
+    
+    tail -n +3 /proc/net/dev | while read -r line; do
+        iface=$(echo "$line" | cut -d':' -f1 | sed 's/ //g')
+        if [[ "$iface" != "lo" ]]; then
+            rx=$(echo "$line" | awk '{print $2}')
+            tx=$(echo "$line" | awk '{print $10}')
+            total=$((rx + tx))
+            printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n" "Server" "$iface" "${boot_days}d" "$(human $rx)" "$(human $tx)" "$(human $total)"
+            break
+        fi
+    done
 }
 
 display_system_info() {
