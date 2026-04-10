@@ -2,12 +2,12 @@
 
 # ============================================
 # V2bX & vnstat Backup/Restore Script
-# Version: 2.1.0
+# Version: 2.1.1
 # Supports: Debian, Ubuntu, CentOS, RHEL, Alpine
 # ============================================
 
 # Script version
-SCRIPT_VERSION="2.1.0"
+SCRIPT_VERSION="2.1.1"
 
 set -e
 
@@ -196,58 +196,72 @@ show_dashboard() {
     get_backup_stats
     
     clear
-    print_header
     
-    # System info line
-    echo -e "${CYAN}System:${NC} ${WHITE}$OS $VER${NC} | ${CYAN}PKG:${NC} ${WHITE}$PKG_MANAGER${NC} | ${CYAN}Kernel:${NC} ${WHITE}$(uname -r | cut -d'-' -f1)${NC} | ${CYAN}Uptime:${NC} ${WHITE}$(uptime -p | sed 's/up //' | sed 's/ hours/H/g' | sed 's/ hour/H/g' | sed 's/ minutes/M/g' | sed 's/ minute/M/g')${NC}"
+    # Elegant header
+    echo ""
+    echo -e "    ${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "    ${WHITE}                     V2bX & vnstat Backup/Restore Tool${NC}"
+    echo -e "    ${CYAN}                            v${SCRIPT_VERSION}${NC}"
+    echo -e "    ${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
-    # V2bX status line
+    # System Info
+    echo -e "    ${BLUE}▸${NC} ${CYAN}System:${NC}      ${WHITE}$OS $VER${NC}"
+    echo -e "    ${BLUE}▸${NC} ${CYAN}Package Mgr:${NC} ${WHITE}$PKG_MANAGER${NC}"
+    echo -e "    ${BLUE}▸${NC} ${CYAN}Kernel:${NC}      ${WHITE}$(uname -r | cut -d'-' -f1)${NC}"
+    echo -e "    ${BLUE}▸${NC} ${CYAN}Uptime:${NC}      ${WHITE}$(uptime -p | sed 's/up //' | sed 's/ hours/H/g' | sed 's/ hour/H/g' | sed 's/ minutes/M/g' | sed 's/ minute/M/g')${NC}"
+    echo ""
+    
+    # Services
+    echo -e "    ${GREEN}▸${NC} ${CYAN}Services:${NC}"
     if [ "$V2BX_INSTALLED" = true ]; then
         if [ "$V2BX_RUNNING" = true ]; then
-            echo -e "${GREEN}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${GREEN}Running${NC} | ${CYAN}Path:${NC} ${WHITE}$V2BX_PATH${NC}"
+            echo -e "      ${GREEN}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${GREEN}Running${NC}  ${BLUE}[${WHITE}$V2BX_PATH${BLUE}]${NC}"
         else
-            echo -e "${RED}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${RED}Stopped${NC} | ${CYAN}Path:${NC} ${WHITE}$V2BX_PATH${NC}"
+            echo -e "      ${RED}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${RED}Stopped${NC}  ${BLUE}[${WHITE}$V2BX_PATH${BLUE}]${NC}"
         fi
     else
-        echo -e "${RED}●${NC} V2bX - ${RED}Not Installed${NC}"
+        echo -e "      ${RED}●${NC} V2bX - ${RED}Not Installed${NC}"
     fi
     
-    # vnstat status line
     if command -v vnstat >/dev/null 2>&1; then
         if [ "$VNSTAT_RUNNING" = true ]; then
-            echo -e "${GREEN}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${GREEN}Running${NC} | ${CYAN}DB:${NC} ${WHITE}$VNSTAT_PATH${NC}"
+            echo -e "      ${GREEN}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${GREEN}Running${NC}  ${BLUE}[${WHITE}$VNSTAT_PATH${BLUE}]${NC}"
         else
-            echo -e "${RED}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${RED}Stopped${NC} | ${CYAN}DB:${NC} ${WHITE}$VNSTAT_PATH${NC}"
+            echo -e "      ${RED}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${RED}Stopped${NC}  ${BLUE}[${WHITE}$VNSTAT_PATH${BLUE}]${NC}"
         fi
     else
-        echo -e "${RED}●${NC} vnstat - ${RED}Not Installed${NC}"
+        echo -e "      ${RED}●${NC} vnstat - ${RED}Not Installed${NC}"
     fi
-    
-    # Backup info line
-    echo -e "${CYAN}Backups:${NC} ${WHITE}$BACKUP_COUNT${NC} | ${CYAN}Latest:${NC} ${WHITE}$LAST_BACKUP${NC} | ${CYAN}Directory:${NC} ${WHITE}$BACKUP_DIR${NC}"
     echo ""
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
+    
+    # Backup Info
+    echo -e "    ${YELLOW}▸${NC} ${CYAN}Backups:${NC}      ${WHITE}$BACKUP_COUNT${NC} total, latest: ${WHITE}$LAST_BACKUP${NC}"
+    echo -e "    ${YELLOW}▸${NC} ${CYAN}Directory:${NC}    ${WHITE}$BACKUP_DIR${NC}"
+    echo ""
+    echo -e "    ${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 }
+
 
 # ============================================
 # Menu
 # ============================================
 
 show_menu() {
-    echo -e "${WHITE}MAIN MENU${NC}"
+    echo -e "    ${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "    ${MAGENTA}                           MAIN MENU${NC}"
+    echo -e "    ${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  ${GREEN}1.${NC} Create backup"
-    echo -e "  ${YELLOW}2.${NC} Restore backup (interactive)"
-    echo -e "  ${BLUE}3.${NC} List backups"
-    echo -e "  4. Cleanup old backups"
-    echo -e "  5. Show backup info"
-    echo -e "  6. Install V2bX (if missing)"
-    echo -e "  7. Install vnstat (if missing)"
-    echo -e "  8. Start/restart services"
-    echo -e "  ${RED}9. Exit${NC}"
+    echo -e "      ${GREEN}1.${NC} 🔄  Create backup          ${YELLOW}2.${NC} 📥  Restore backup"
+    echo -e "      ${BLUE}3.${NC} 📋  List backups          4. 🧹  Cleanup old backups"
+    echo -e "      5. ℹ️   Show backup info       6. ⚡  Install V2bX"
+    echo -e "      7. 📊  Install vnstat         8. 🔧  Start/restart services"
+    echo -e "      ${RED}9.${NC} 🚪  Exit"
     echo ""
+    echo -e "    ${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "    ${CYAN}➤${NC} ${WHITE}Choose an option:${NC} \c"
 }
 
 # ============================================
