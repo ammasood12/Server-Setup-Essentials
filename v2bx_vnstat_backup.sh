@@ -541,7 +541,7 @@ list_backups() {
     
     local id=1
     for backup in "${backups[@]}"; do
-        local filename=$(basename "$backup")
+        local filename=$(basename "$backup" | sed 's/^v2bx_vnstat_//; s/_[0-9]\{8\}-[0-9]\{6\}\.tar\.gz$//')
         local size=$(du -h "$backup" | cut -f1)
         local date=$(stat -c %y "$backup" 2>/dev/null | cut -d. -f1 || stat -f %Sm -t "%Y-%m-%d %H:%M:%S" "$backup" 2>/dev/null)
         printf "%-5s %-40s %-10s %-20s\n" "$id" "$filename" "$size" "$date"
