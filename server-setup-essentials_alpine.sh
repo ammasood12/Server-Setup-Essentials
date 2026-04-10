@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.5-alpine"
+VERSION="v2.5.5.1-alpine"
 set -euo pipefail
 
 #######################################
@@ -92,8 +92,8 @@ install_script_dependencies() {
 # Package name mappings for Alpine
 init_package_lists() {
     if [[ "$OS_TYPE" == "alpine" ]]; then
-        # Alpine Linux packages
-        BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq" "bc")
+        # Alpine Linux packages - add tzdata for timezone support
+        BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq" "bc" "tzdata")
         NETWORK_PACKAGES=("vnstat" "net-tools" "bind-tools" "iputils" "traceroute" "ethtool")
         LOG_OPTIMIZATION_PACKAGES=()  # Alpine uses busybox syslogd
         EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest-cli" "coreutils")
@@ -1261,7 +1261,7 @@ configure_timezone() {
     read -rp "   Choose option [0-7]: " tz_choice
 
     case "$tz_choice" in
-        1) new_tz="etc/UTC" ;;
+        1) new_tz="Etc/UTC" ;;
         2) new_tz="Etc/GMT+5" ;;
         3) new_tz="Etc/GMT+16" ;;
         4) new_tz="Asia/Shanghai" ;;
@@ -1278,16 +1278,41 @@ configure_timezone() {
             return ;;
     esac
 
+    # Fix: Use correct zoneinfo path and handle Alpine properly
     if [[ "$OS_TYPE" == "alpine" ]]; then
-        if cp /usr/share/zoneinfo/$new_tz /etc/localtime 2>/dev/null; then
-            echo "$new_tz" > /etc/timezone
-            log_ok "Timezone successfully set to: ${CYAN}${new_tz}${RESET}"
+        # For Alpine, we need to find the correct zoneinfo file
+        local zoneinfo_file=""
+        
+        # Try to find the zoneinfo file
+        if [[ -f "/usr/share/zoneinfo/${new_tz}" ]]; then
+            zoneinfo_file="/usr/share/zoneinfo/${new_tz}"
+        elif [[ -f "/usr/share/zoneinfo/posix/${new_tz}" ]]; then
+            zoneinfo_file="/usr/share/zoneinfo/posix/${new_tz}"
+        elif [[ -f "/usr/share/zoneinfo/right/${new_tz}" ]]; then
+            zoneinfo_file="/usr/share/zoneinfo/right/${new_tz}"
         else
-            log_error "Failed to set timezone: $new_tz"
+            # Try to find with case-insensitive search
+            zoneinfo_file=$(find /usr/share/zoneinfo -type f -iname "$(basename "$new_tz")" 2>/dev/null | head -1)
+        fi
+        
+        if [[ -n "$zoneinfo_file" ]] && [[ -f "$zoneinfo_file" ]]; then
+            if cp "$zoneinfo_file" /etc/localtime 2>/dev/null; then
+                echo "$new_tz" > /etc/timezone
+                log_ok "Timezone successfully set to: ${CYAN}${new_tz}${RESET}"
+                # Verify the change
+                log_info "New timezone: $(date +%Z) - $(date)"
+            else
+                log_error "Failed to set timezone: $new_tz"
+                log_info "Try installing tzdata first: apk add tzdata"
+            fi
+        else
+            log_error "Timezone file not found: $new_tz"
+            log_info "Available timezones can be listed with: ls /usr/share/zoneinfo/"
+            log_info "Try installing tzdata first: apk add tzdata"
         fi
     else
         if timedatectl set-timezone "$new_tz" 2>/dev/null; then
-            log_ok "Timezone:" "$(date +%Z 2>/dev/null || echo "Unknown")"
+            log_ok "Timezone successfully set to: ${CYAN}${new_tz}${RESET}"
         else
             log_error "Failed to set timezone: $new_tz"
         fi
@@ -1901,7 +1926,7 @@ main_menu() {
 main() {
     require_root
     install_script_dependencies
-	
+    
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
     
     echo "=== Server Setup Essentials $VERSION - $(date) ===" > "$LOG_FILE"
@@ -1915,6 +1940,12 @@ main() {
         if ! command -v bc >/dev/null 2>&1; then
             log_info "Installing bc for calculations..."
             apk add --no-cache bc 2>/dev/null || true
+        fi
+        
+        # Install tzdata if not present (for timezone support)
+        if [[ ! -f /usr/share/zoneinfo/Asia/Shanghai ]]; then
+            log_info "Installing tzdata for timezone support..."
+            apk add --no-cache tzdata 2>/dev/null || true
         fi
     elif [[ "$OS_TYPE" == "unknown" ]]; then
         log_warn "This script is optimized for Alpine, Debian/Ubuntu and CentOS/RHEL based systems"
