@@ -2,12 +2,12 @@
 
 # ============================================
 # V2bX & vnstat Backup/Restore Script
-# Version: 2.0.0
+# Version: 2.1.0
 # Supports: Debian, Ubuntu, CentOS, RHEL, Alpine
 # ============================================
 
 # Script version
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="2.1.0"
 
 set -e
 
@@ -17,7 +17,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
@@ -26,8 +25,6 @@ V2BX_PATH="/etc/V2bX"
 VNSTAT_PATH="/var/lib/vnstat"
 BACKUP_DIR="/root"
 SCRIPT_NAME=$(basename "$0")
-V2BX_SERVICE="V2bX"
-VNSTAT_SERVICE="vnstat"
 
 # Global variables for dashboard
 OS=""
@@ -46,9 +43,9 @@ BACKUP_COUNT=0
 
 print_header() {
     echo ""
-    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${WHITE}           V2bX & vnstat Backup/Restore Tool v${SCRIPT_VERSION}              ${CYAN}║${NC}"
-    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${WHITE}     V2bX & vnstat Backup/Restore Tool v${SCRIPT_VERSION}${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
@@ -66,10 +63,6 @@ print_error() {
 
 print_warning() {
     echo -e "${YELLOW}[!]${NC} $1"
-}
-
-print_info() {
-    echo -e "${CYAN}[i]${NC} $1"
 }
 
 check_root() {
@@ -137,7 +130,7 @@ get_v2bx_version() {
         V2BX_VERSION=$("$V2BX_PATH/V2bX" -v 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         [ -z "$V2BX_VERSION" ] && V2BX_VERSION="installed"
     else
-        V2BX_VERSION="not installed"
+        V2BX_VERSION="-"
     fi
 }
 
@@ -146,19 +139,17 @@ get_vnstat_version() {
         VNSTAT_VERSION=$(vnstat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         [ -z "$VNSTAT_VERSION" ] && VNSTAT_VERSION="installed"
     else
-        VNSTAT_VERSION="not installed"
+        VNSTAT_VERSION="-"
     fi
 }
 
 check_services_status() {
-    # Check V2bX running status
     if pgrep -f "V2bX" >/dev/null; then
         V2BX_RUNNING=true
     else
         V2BX_RUNNING=false
     fi
     
-    # Check vnstat running status
     if pgrep -f "vnstat" >/dev/null; then
         VNSTAT_RUNNING=true
     else
@@ -172,23 +163,21 @@ get_backup_stats() {
     
     if [ $BACKUP_COUNT -gt 0 ]; then
         local latest="${backups[0]}"
-        LAST_BACKUP=$(basename "$latest" | sed 's/^v2bx_vnstat_//; s/_[0-9]\{8\}-[0-9]\{6\}\.tar\.gz$//')
-        LAST_BACKUP_DATE=$(stat -c %y "$latest" 2>/dev/null | cut -d. -f1 | cut -d' ' -f1 || stat -f %Sm -t "%Y-%m-%d" "$latest" 2>/dev/null)
-        LAST_BACKUP="${LAST_BACKUP} (${LAST_BACKUP_DATE})"
+        local domain=$(basename "$latest" | sed 's/^v2bx_vnstat_//; s/_[0-9]\{8\}-[0-9]\{6\}\.tar\.gz$//')
+        local date=$(stat -c %y "$latest" 2>/dev/null | cut -d. -f1 | cut -d' ' -f1 || stat -f %Sm -t "%Y-%m-%d" "$latest" 2>/dev/null)
+        LAST_BACKUP="${domain} (${date})"
     else
         LAST_BACKUP="none"
     fi
 }
 
 check_services() {
-    # Check if V2bX is installed
     if [ ! -d "$V2BX_PATH" ]; then
         V2BX_INSTALLED=false
     else
         V2BX_INSTALLED=true
     fi
     
-    # Check for vnstat
     if [ ! -d "$VNSTAT_PATH" ]; then
         VNSTAT_INSTALLED=false
     else
@@ -197,11 +186,10 @@ check_services() {
 }
 
 # ============================================
-# Dashboard Functions
+# Compact Dashboard
 # ============================================
 
 show_dashboard() {
-    # Refresh data
     get_v2bx_version
     get_vnstat_version
     check_services_status
@@ -210,71 +198,55 @@ show_dashboard() {
     clear
     print_header
     
-    # System Information
-    echo -e "${WHITE}┌────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${WHITE}│${CYAN} SYSTEM INFORMATION${WHITE}                                                │${NC}"
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-    printf "${WHITE}│${NC} ${BLUE}OS:${NC} %-60s ${WHITE}│${NC}\n" "$OS $VER"
-    printf "${WHITE}│${NC} ${BLUE}Package Manager:${NC} %-52s ${WHITE}│${NC}\n" "$PKG_MANAGER"
-    printf "${WHITE}│${NC} ${BLUE}Kernel:${NC} %-59s ${WHITE}│${NC}\n" "$(uname -r)"
-    printf "${WHITE}│${NC} ${BLUE}Uptime:${NC} %-58s ${WHITE}│${NC}\n" "$(uptime -p | sed 's/up //')"
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
+    # System info line
+    echo -e "${CYAN}System:${NC} ${WHITE}$OS $VER${NC} | ${CYAN}PKG:${NC} ${WHITE}$PKG_MANAGER${NC} | ${CYAN}Kernel:${NC} ${WHITE}$(uname -r | cut -d'-' -f1)${NC} | ${CYAN}Uptime:${NC} ${WHITE}$(uptime -p | sed 's/up //' | sed 's/ hours/H/g' | sed 's/ hour/H/g' | sed 's/ minutes/M/g' | sed 's/ minute/M/g')${NC}"
+    echo ""
     
-    # Services Information
-    echo -e "${WHITE}│${CYAN} SERVICES STATUS${WHITE}                                                  │${NC}"
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-    
-    # V2bX status
+    # V2bX status line
     if [ "$V2BX_INSTALLED" = true ]; then
         if [ "$V2BX_RUNNING" = true ]; then
-            printf "${WHITE}│${NC} ${GREEN}●${NC} V2bX         ${WHITE}Version:${NC} %-15s ${GREEN}Running${NC} %31s ${WHITE}│${NC}\n" "$V2BX_VERSION" ""
+            echo -e "${GREEN}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${GREEN}Running${NC} | ${CYAN}Path:${NC} ${WHITE}$V2BX_PATH${NC}"
         else
-            printf "${WHITE}│${NC} ${RED}●${NC} V2bX         ${WHITE}Version:${NC} %-15s ${RED}Stopped${NC} %31s ${WHITE}│${NC}\n" "$V2BX_VERSION" ""
+            echo -e "${RED}●${NC} V2bX ${WHITE}v$V2BX_VERSION${NC} - ${RED}Stopped${NC} | ${CYAN}Path:${NC} ${WHITE}$V2BX_PATH${NC}"
         fi
     else
-        printf "${WHITE}│${NC} ${RED}●${NC} V2bX         ${WHITE}Status:${NC} %-53s ${WHITE}│${NC}\n" "Not Installed"
+        echo -e "${RED}●${NC} V2bX - ${RED}Not Installed${NC}"
     fi
     
-    # vnstat status
+    # vnstat status line
     if command -v vnstat >/dev/null 2>&1; then
         if [ "$VNSTAT_RUNNING" = true ]; then
-            printf "${WHITE}│${NC} ${GREEN}●${NC} vnstat       ${WHITE}Version:${NC} %-15s ${GREEN}Running${NC} %31s ${WHITE}│${NC}\n" "$VNSTAT_VERSION" ""
+            echo -e "${GREEN}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${GREEN}Running${NC} | ${CYAN}DB:${NC} ${WHITE}$VNSTAT_PATH${NC}"
         else
-            printf "${WHITE}│${NC} ${RED}●${NC} vnstat       ${WHITE}Version:${NC} %-15s ${RED}Stopped${NC} %31s ${WHITE}│${NC}\n" "$VNSTAT_VERSION" ""
+            echo -e "${RED}●${NC} vnstat ${WHITE}v$VNSTAT_VERSION${NC} - ${RED}Stopped${NC} | ${CYAN}DB:${NC} ${WHITE}$VNSTAT_PATH${NC}"
         fi
     else
-        printf "${WHITE}│${NC} ${RED}●${NC} vnstat       ${WHITE}Status:${NC} %-53s ${WHITE}│${NC}\n" "Not Installed"
+        echo -e "${RED}●${NC} vnstat - ${RED}Not Installed${NC}"
     fi
     
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-    
-    # Backup Information
-    echo -e "${WHITE}│${CYAN} BACKUP INFORMATION${WHITE}                                                │${NC}"
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-    printf "${WHITE}│${NC} ${BLUE}Total Backups:${NC} %-60s ${WHITE}│${NC}\n" "$BACKUP_COUNT"
-    printf "${WHITE}│${NC} ${BLUE}Last Backup:${NC} %-61s ${WHITE}│${NC}\n" "$LAST_BACKUP"
-    printf "${WHITE}│${NC} ${BLUE}Backup Directory:${NC} %-55s ${WHITE}│${NC}\n" "$BACKUP_DIR"
-    echo -e "${WHITE}└────────────────────────────────────────────────────────────────┘${NC}"
+    # Backup info line
+    echo -e "${CYAN}Backups:${NC} ${WHITE}$BACKUP_COUNT${NC} | ${CYAN}Latest:${NC} ${WHITE}$LAST_BACKUP${NC} | ${CYAN}Directory:${NC} ${WHITE}$BACKUP_DIR${NC}"
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
+# ============================================
+# Menu
+# ============================================
+
 show_menu() {
-    show_dashboard
-    
-    echo -e "${WHITE}┌────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${WHITE}│${CYAN} MAIN MENU${WHITE}                                                         │${NC}"
-    echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${WHITE}│${NC}  ${GREEN}1.${NC} Create backup                                              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  ${YELLOW}2.${NC} Restore backup (interactive)                               ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  ${BLUE}3.${NC} List backups                                               ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  4. Cleanup old backups                                      ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  5. Show backup info                                         ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  6. Show detailed installation status                        ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  7. Install V2bX (if missing)                                ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  8. Install vnstat (if missing)                              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  9. Start/restart services                                   ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC}  ${RED}10. Exit${NC}                                                       ${WHITE}│${NC}"
-    echo -e "${WHITE}└────────────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${WHITE}MAIN MENU${NC}"
+    echo ""
+    echo -e "  ${GREEN}1.${NC} Create backup"
+    echo -e "  ${YELLOW}2.${NC} Restore backup (interactive)"
+    echo -e "  ${BLUE}3.${NC} List backups"
+    echo -e "  4. Cleanup old backups"
+    echo -e "  5. Show backup info"
+    echo -e "  6. Install V2bX (if missing)"
+    echo -e "  7. Install vnstat (if missing)"
+    echo -e "  8. Start/restart services"
+    echo -e "  ${RED}9. Exit${NC}"
     echo ""
 }
 
@@ -285,7 +257,6 @@ show_menu() {
 install_v2bx() {
     print_status "Installing V2bX..."
     
-    # Detect architecture
     ARCH=$(uname -m)
     case $ARCH in
         x86_64)
@@ -303,7 +274,6 @@ install_v2bx() {
             ;;
     esac
     
-    # Get latest version
     print_status "Fetching latest V2bX version..."
     LATEST_VERSION=$(curl -s https://api.github.com/repos/InazumaV/V2bX/releases/latest | jq -r .tag_name)
     
@@ -314,14 +284,12 @@ install_v2bx() {
         DOWNLOAD_URL="https://github.com/InazumaV/V2bX/releases/download/${LATEST_VERSION}/V2bX-linux-${ARCH}.zip"
     fi
     
-    # Download and install
-    print_status "Downloading V2bX from $DOWNLOAD_URL"
+    print_status "Downloading V2bX..."
     curl -L -o /tmp/V2bX.zip "$DOWNLOAD_URL" || {
         print_error "Failed to download V2bX"
         return 1
     }
     
-    # Install unzip if needed
     if ! command -v unzip >/dev/null 2>&1; then
         print_status "Installing unzip..."
         eval "$INSTALL_CMD unzip" || {
@@ -330,7 +298,6 @@ install_v2bx() {
         }
     fi
     
-    # Extract and install
     unzip -o /tmp/V2bX.zip -d /tmp/V2bX_extract || {
         print_error "Failed to extract V2bX"
         return 1
@@ -339,7 +306,6 @@ install_v2bx() {
     mkdir -p "$V2BX_PATH"
     cp -r /tmp/V2bX_extract/* "$V2BX_PATH/" 2>/dev/null || true
     
-    # Make binary executable
     if [ -f "$V2BX_PATH/V2bX" ]; then
         chmod +x "$V2BX_PATH/V2bX"
     elif [ -f "$V2BX_PATH/V2bX-linux-${ARCH}" ]; then
@@ -347,10 +313,8 @@ install_v2bx() {
         chmod +x "$V2BX_PATH/V2bX"
     fi
     
-    # Create service file based on init system
     create_v2bx_service
     
-    # Cleanup
     rm -rf /tmp/V2bX.zip /tmp/V2bX_extract
     
     print_success "V2bX installed successfully"
@@ -358,9 +322,8 @@ install_v2bx() {
 }
 
 create_v2bx_service() {
-    # Detect init system
     if command -v systemctl >/dev/null 2>&1; then
-        print_status "Creating systemd service for V2bX..."
+        print_status "Creating systemd service..."
         cat > /etc/systemd/system/V2bX.service << EOF
 [Unit]
 Description=V2bX Service
@@ -382,7 +345,7 @@ EOF
         systemctl enable V2bX.service
         
     elif command -v rc-update >/dev/null 2>&1; then
-        print_status "Creating OpenRC service for V2bX..."
+        print_status "Creating OpenRC service..."
         cat > /etc/init.d/V2bX << EOF
 #!/sbin/openrc-run
 
@@ -420,17 +383,14 @@ install_vnstat() {
     esac
     
     if [ $? -eq 0 ]; then
-        # Create database directory if needed
         mkdir -p "$VNSTAT_PATH"
         
-        # Initialize database for network interfaces
         if command -v vnstat >/dev/null 2>&1; then
             for interface in $(ls /sys/class/net/ | grep -v lo); do
                 vnstat -i $interface --add 2>/dev/null || true
             done
         fi
         
-        # Start vnstat service
         if command -v systemctl >/dev/null 2>&1; then
             systemctl start vnstat
             systemctl enable vnstat
@@ -450,29 +410,26 @@ install_vnstat() {
 }
 
 start_v2bx() {
-    print_status "Starting V2bX service..."
+    print_status "Starting V2bX..."
     
     if command -v systemctl >/dev/null 2>&1; then
         systemctl start V2bX.service
-        systemctl status V2bX.service --no-pager
     elif command -v rc-service >/dev/null 2>&1; then
         rc-service V2bX start
     elif [ -f "$V2BX_PATH/V2bX" ]; then
-        # Run directly if no init system
         nohup "$V2BX_PATH/V2bX" server > /var/log/V2bX.log 2>&1 &
     fi
     
-    # Check if running
     sleep 2
     if pgrep -f "V2bX" >/dev/null; then
-        print_success "V2bX started successfully"
+        print_success "V2bX started"
     else
-        print_warning "V2bX may not be running, check logs"
+        print_warning "V2bX may not be running"
     fi
 }
 
 stop_v2bx() {
-    print_status "Stopping V2bX service..."
+    print_status "Stopping V2bX..."
     
     if command -v systemctl >/dev/null 2>&1; then
         systemctl stop V2bX.service
@@ -484,21 +441,14 @@ stop_v2bx() {
 }
 
 restart_v2bx() {
-    print_status "Restarting V2bX service..."
-    
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl restart V2bX.service
-    elif command -v rc-service >/dev/null 2>&1; then
-        rc-service V2bX restart
-    else
-        stop_v2bx
-        sleep 2
-        start_v2bx
-    fi
+    print_status "Restarting V2bX..."
+    stop_v2bx
+    sleep 2
+    start_v2bx
 }
 
 start_vnstat() {
-    print_status "Starting vnstat service..."
+    print_status "Starting vnstat..."
     
     if command -v systemctl >/dev/null 2>&1; then
         systemctl start vnstat
@@ -510,7 +460,7 @@ start_vnstat() {
 }
 
 stop_vnstat() {
-    print_status "Stopping vnstat service..."
+    print_status "Stopping vnstat..."
     
     if command -v systemctl >/dev/null 2>&1; then
         systemctl stop vnstat
@@ -519,6 +469,13 @@ stop_vnstat() {
     elif command -v service >/dev/null 2>&1; then
         service vnstat stop
     fi
+}
+
+restart_vnstat() {
+    print_status "Restarting vnstat..."
+    stop_vnstat
+    sleep 2
+    start_vnstat
 }
 
 # ============================================
@@ -544,16 +501,16 @@ get_domain() {
 
 backup_v2bx() {
     local backup_path="$1"
-    print_status "Backing up V2bX from $V2BX_PATH..."
+    print_status "Backing up V2bX..."
     
     if [ -d "$V2BX_PATH" ]; then
         tar -rf "$backup_path" "$V2BX_PATH" 2>/dev/null || {
             print_error "Failed to backup V2bX"
             return 1
         }
-        print_success "V2bX backed up successfully"
+        print_success "V2bX backed up"
     else
-        print_warning "V2bX directory not found"
+        print_warning "V2bX not found"
         return 1
     fi
 }
@@ -562,12 +519,12 @@ backup_vnstat() {
     local backup_path="$1"
     
     if [ -d "$VNSTAT_PATH" ]; then
-        print_status "Backing up vnstat from $VNSTAT_PATH..."
+        print_status "Backing up vnstat..."
         tar -rf "$backup_path" "$VNSTAT_PATH" 2>/dev/null || {
             print_error "Failed to backup vnstat"
             return 1
         }
-        print_success "vnstat backed up successfully"
+        print_success "vnstat backed up"
     else
         print_warning "vnstat not found, skipping"
     fi
@@ -579,12 +536,10 @@ create_backup() {
     local backup_file="$BACKUP_DIR/v2bx_vnstat_${domain}_${timestamp}.tar.gz"
     local temp_file="/tmp/v2bx_backup_${timestamp}.tar"
     
-    print_status "Creating backup: $backup_file"
+    print_status "Creating backup: $(basename "$backup_file")"
     
-    # Create temporary tar file
     touch "$temp_file"
     
-    # Backup components
     backup_v2bx "$temp_file" || {
         rm -f "$temp_file"
         return 1
@@ -592,18 +547,14 @@ create_backup() {
     
     backup_vnstat "$temp_file"
     
-    # Compress the backup
     if [ -s "$temp_file" ]; then
         gzip -c "$temp_file" > "$backup_file"
         rm -f "$temp_file"
-        
-        # Show backup info
         local size=$(du -h "$backup_file" | cut -f1)
-        print_success "Backup created successfully: $backup_file"
-        print_status "Backup size: $size"
+        print_success "Backup created: $(basename "$backup_file") (${size})"
     else
         rm -f "$temp_file"
-        print_error "Backup failed: no data to backup"
+        print_error "Backup failed"
         return 1
     fi
 }
@@ -615,21 +566,22 @@ list_backups() {
     local backups=($(ls -t "$BACKUP_DIR"/v2bx_vnstat_*.tar.gz 2>/dev/null))
     
     if [ ${#backups[@]} -eq 0 ]; then
-        print_warning "No backups found in $BACKUP_DIR"
+        print_warning "No backups found"
         return
     fi
     
-    printf "%-5s %-40s %-10s %-20s\n" "ID" "Domain Name" "Size" "Date"
-    echo "--------------------------------------------------------------------------------"
+    printf "  %-4s %-35s %-10s %-20s\n" "ID" "Domain" "Size" "Date"
+    echo "  ------------------------------------------------------------------------"
     
     local id=1
     for backup in "${backups[@]}"; do
         local domain=$(basename "$backup" | sed 's/^v2bx_vnstat_//; s/_[0-9]\{8\}-[0-9]\{6\}\.tar\.gz$//')
         local size=$(du -h "$backup" | cut -f1)
-        local date=$(stat -c %y "$backup" 2>/dev/null | cut -d. -f1 || stat -f %Sm -t "%Y-%m-%d %H:%M:%S" "$backup" 2>/dev/null)
-        printf "%-5s %-40s %-10s %-20s\n" "$id" "$domain" "$size" "$date"
+        local date=$(stat -c %y "$backup" 2>/dev/null | cut -d. -f1 | cut -d' ' -f1 || stat -f %Sm -t "%Y-%m-%d" "$backup" 2>/dev/null)
+        printf "  %-4s %-35s %-10s %-20s\n" "$id" "$domain" "$size" "$date"
         ((id++))
     done
+    echo ""
 }
 
 # ============================================
@@ -639,16 +591,16 @@ list_backups() {
 ensure_v2bx_installed() {
     if [ "$V2BX_INSTALLED" = false ]; then
         print_warning "V2bX is not installed"
-        read -p "Do you want to install V2bX before restoring? (y/N): " -n 1 -r
+        read -p "Install V2bX before restoring? (y/N): " -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             install_v2bx
             if [ "$V2BX_INSTALLED" = false ]; then
-                print_error "Failed to install V2bX. Cannot proceed with restore."
+                print_error "Failed to install V2bX"
                 return 1
             fi
         else
-            print_error "V2bX is required for restore. Exiting."
+            print_error "V2bX required for restore"
             return 1
         fi
     fi
@@ -658,14 +610,10 @@ ensure_v2bx_installed() {
 ensure_vnstat_installed() {
     if [ "$VNSTAT_INSTALLED" = false ]; then
         print_warning "vnstat is not installed"
-        read -p "Do you want to install vnstat before restoring? (y/N): " -n 1 -r
+        read -p "Install vnstat before restoring? (y/N): " -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             install_vnstat
-            if [ "$VNSTAT_INSTALLED" = false ]; then
-                print_warning "Failed to install vnstat. Continuing without vnstat restore."
-                return 1
-            fi
         else
             print_warning "Skipping vnstat restore"
             return 1
@@ -678,21 +626,17 @@ restore_v2bx() {
     local temp_dir="$1"
     
     print_status "Restoring V2bX..."
-    
-    # Stop V2bX before restore
     stop_v2bx
     
     if [ -d "$V2BX_PATH" ]; then
         local backup_v2bx="$V2BX_PATH.backup.$(date +%Y%m%d_%H%M%S)"
-        print_status "Backing up current V2bX to $backup_v2bx"
         mv "$V2BX_PATH" "$backup_v2bx"
+        print_status "Current V2bX backed up to $backup_v2bx"
     fi
     
     if [ -d "$temp_dir/etc/V2bX" ]; then
         cp -r "$temp_dir/etc/V2bX" "$V2BX_PATH"
-        print_success "V2bX restored successfully"
-        
-        # Restart V2bX
+        print_success "V2bX restored"
         restart_v2bx
     else
         print_error "V2bX not found in backup"
@@ -705,29 +649,22 @@ restore_vnstat() {
     
     if [ -d "$temp_dir/var/lib/vnstat" ]; then
         print_status "Restoring vnstat..."
-        
-        # Stop vnstat service if running
         stop_vnstat
         
-        # Backup current vnstat if exists
         if [ -d "$VNSTAT_PATH" ]; then
             local backup_vnstat="$VNSTAT_PATH.backup.$(date +%Y%m%d_%H%M%S)"
-            print_status "Backing up current vnstat to $backup_vnstat"
             mv "$VNSTAT_PATH" "$backup_vnstat"
+            print_status "Current vnstat backed up to $backup_vnstat"
         fi
         
-        # Restore vnstat
         cp -r "$temp_dir/var/lib/vnstat" "$VNSTAT_PATH"
         
-        # Fix permissions
         if getent passwd vnstat >/dev/null 2>&1; then
             chown -R vnstat:vnstat "$VNSTAT_PATH" 2>/dev/null || true
         fi
         
-        # Restart vnstat service
         start_vnstat
-        
-        print_success "vnstat restored successfully"
+        print_success "vnstat restored"
     else
         print_warning "vnstat not found in backup, skipping"
     fi
@@ -741,26 +678,22 @@ restore_backup() {
         return 1
     fi
     
-    print_status "Restoring from: $backup_file"
+    print_status "Restoring from: $(basename "$backup_file")"
     
-    # Check and install missing components before restore
     ensure_v2bx_installed || return 1
     ensure_vnstat_installed
     
-    # Create temporary directory for extraction
     local temp_dir=$(mktemp -d)
     
-    # Extract backup
     tar -xzf "$backup_file" -C "$temp_dir" || {
         print_error "Failed to extract backup"
         rm -rf "$temp_dir"
         return 1
     }
     
-    # Confirm restore
     echo ""
     print_warning "This will replace your current V2bX configuration"
-    read -p "Are you sure you want to continue? (y/N): " -n 1 -r
+    read -p "Continue? (y/N): " -n 1 -r
     echo ""
     
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -769,15 +702,12 @@ restore_backup() {
         return
     fi
     
-    # Restore components
     restore_v2bx "$temp_dir"
     restore_vnstat "$temp_dir"
     
-    # Cleanup
     rm -rf "$temp_dir"
     
-    print_success "Restore completed successfully"
-    print_warning "Please verify that both services are running correctly"
+    print_success "Restore completed"
 }
 
 interactive_restore() {
@@ -790,7 +720,7 @@ interactive_restore() {
     fi
     
     echo ""
-    read -p "Enter backup ID to restore (or 0 to cancel): " backup_id
+    read -p "Enter backup ID to restore (0 to cancel): " backup_id
     
     if [ "$backup_id" -eq 0 ] 2>/dev/null; then
         print_status "Restore cancelled"
@@ -798,8 +728,7 @@ interactive_restore() {
     fi
     
     if [ "$backup_id" -ge 1 ] && [ "$backup_id" -le ${#backups[@]} ] 2>/dev/null; then
-        local selected_backup="${backups[$((backup_id-1))]}"
-        restore_backup "$selected_backup"
+        restore_backup "${backups[$((backup_id-1))]}"
     else
         print_error "Invalid backup ID"
     fi
@@ -827,25 +756,18 @@ show_backup_info() {
         return 1
     fi
     
-    print_status "Backup information:"
-    echo "  File: $(basename "$backup_file")"
-    echo "  Size: $(du -h "$backup_file" | cut -f1)"
-    echo "  Created: $(stat -c %y "$backup_file" 2>/dev/null | cut -d. -f1 || stat -f %Sm -t "%Y-%m-%d %H:%M:%S" "$backup_file" 2>/dev/null)"
-    
-    # List contents
     echo ""
-    print_status "Backup contents:"
-    tar -tzf "$backup_file" | head -20
+    print_status "Backup: $(basename "$backup_file")"
+    echo -e "  ${CYAN}Size:${NC} $(du -h "$backup_file" | cut -f1)"
+    echo -e "  ${CYAN}Created:${NC} $(stat -c %y "$backup_file" 2>/dev/null | cut -d. -f1 || stat -f %Sm -t "%Y-%m-%d %H:%M:%S" "$backup_file" 2>/dev/null)"
+    echo ""
+    print_status "Contents:"
+    tar -tzf "$backup_file" | head -15 | sed 's/^/  /'
     local total=$(tar -tzf "$backup_file" | wc -l)
-    if [ $total -gt 20 ]; then
-        echo "  ... and $((total - 20)) more files"
+    if [ $total -gt 15 ]; then
+        echo "  ... and $((total - 15)) more files"
     fi
-}
-
-show_installation_status() {
-    show_dashboard
     echo ""
-    read -p "Press Enter to continue..."
 }
 
 # ============================================
@@ -857,20 +779,18 @@ manage_services_menu() {
         clear
         show_dashboard
         
-        echo -e "${WHITE}┌────────────────────────────────────────────────────────────────┐${NC}"
-        echo -e "${WHITE}│${CYAN} SERVICE MANAGEMENT${WHITE}                                               │${NC}"
-        echo -e "${WHITE}├────────────────────────────────────────────────────────────────┤${NC}"
-        echo -e "${WHITE}│${NC}  1. Start V2bX                                                ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  2. Stop V2bX                                                 ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  3. Restart V2bX                                              ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  4. Start vnstat                                              ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  5. Stop vnstat                                               ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  6. Restart vnstat                                            ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}  7. Back to main menu                                         ${WHITE}│${NC}"
-        echo -e "${WHITE}└────────────────────────────────────────────────────────────────┘${NC}"
+        echo -e "${WHITE}SERVICE MANAGEMENT${NC}"
+        echo ""
+        echo "  1. Start V2bX"
+        echo "  2. Stop V2bX"
+        echo "  3. Restart V2bX"
+        echo "  4. Start vnstat"
+        echo "  5. Stop vnstat"
+        echo "  6. Restart vnstat"
+        echo "  7. Back to main menu"
         echo ""
         
-        read -p "Choose an option [1-7]: " svc_choice
+        read -p "Choose option [1-7]: " svc_choice
         
         case $svc_choice in
             1) start_v2bx ;;
@@ -878,11 +798,7 @@ manage_services_menu() {
             3) restart_v2bx ;;
             4) start_vnstat ;;
             5) stop_vnstat ;;
-            6) 
-                stop_vnstat
-                sleep 2
-                start_vnstat
-                ;;
+            6) restart_vnstat ;;
             7) return ;;
             *) print_error "Invalid option" ;;
         esac
@@ -904,79 +820,66 @@ main() {
     check_services
     
     while true; do
+        show_dashboard
         show_menu
-        read -p "Choose an option [1-10]: " choice
+        read -p "Choose option [1-9]: " choice
         
         case $choice in
             1)
                 create_backup
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
             2)
                 interactive_restore
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
             3)
                 list_backups
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
             4)
                 read -p "Keep backups from last how many days? [30]: " days
                 days=${days:-30}
                 cleanup_old_backups "$days"
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
             5)
                 list_backups
-                echo ""
-                read -p "Enter backup ID to inspect: " backup_id
-                local backups=($(ls -t "$BACKUP_DIR"/v2bx_vnstat_*.tar.gz 2>/dev/null))
-                if [ "$backup_id" -ge 1 ] 2>/dev/null && [ "$backup_id" -le ${#backups[@]} ] 2>/dev/null; then
-                    show_backup_info "${backups[$((backup_id-1))]}"
-                else
-                    print_error "Invalid backup ID"
+                if [ $BACKUP_COUNT -gt 0 ]; then
+                    echo ""
+                    read -p "Enter backup ID to inspect: " backup_id
+                    local backups=($(ls -t "$BACKUP_DIR"/v2bx_vnstat_*.tar.gz 2>/dev/null))
+                    if [ "$backup_id" -ge 1 ] 2>/dev/null && [ "$backup_id" -le ${#backups[@]} ] 2>/dev/null; then
+                        show_backup_info "${backups[$((backup_id-1))]}"
+                    else
+                        print_error "Invalid backup ID"
+                    fi
                 fi
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
             6)
-                show_installation_status
-                ;;
-            7)
                 if [ "$V2BX_INSTALLED" = false ]; then
                     install_v2bx
                 else
-                    print_warning "V2bX is already installed"
+                    print_warning "V2bX already installed"
                 fi
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
-            8)
+            7)
                 if [ "$VNSTAT_INSTALLED" = false ]; then
                     install_vnstat
                 else
-                    print_warning "vnstat is already installed"
+                    print_warning "vnstat already installed"
                 fi
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
-            9)
+            8)
                 manage_services_menu
                 ;;
-            10)
+            9)
                 print_success "Goodbye!"
                 exit 0
                 ;;
             *)
                 print_error "Invalid option"
-                echo ""
-                read -p "Press Enter to continue..."
                 ;;
         esac
+        
+        echo ""
+        read -p "Press Enter to continue..."
     done
 }
 
@@ -1024,7 +927,7 @@ case "$1" in
         detect_os
         detect_package_manager
         check_services
-        show_installation_status
+        show_dashboard
         ;;
     install-v2bx)
         check_root
