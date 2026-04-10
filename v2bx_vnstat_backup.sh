@@ -2,11 +2,11 @@
 
 # ============================================
 # V2bX & vnstat Backup/Restore Script
-# Version: 2.2.0
+# Version: 2.2.1
 # Supports: Debian, Ubuntu, CentOS, RHEL, Alpine
 # ============================================
 
-SCRIPT_VERSION="2.2.0"
+SCRIPT_VERSION="2.2.1"
 
 # Colors for output
 RED='\033[0;31m'
@@ -547,7 +547,7 @@ main() {
     check_installation
     
     while true; do
-        show_dashboardf
+        show_dashboard
         show_menu
         read -p " Choose option [1-8]: " choice
         
