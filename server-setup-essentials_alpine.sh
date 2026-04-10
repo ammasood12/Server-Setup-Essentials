@@ -77,10 +77,17 @@ OS_TYPE=$(detect_os)
 PKG_MANAGER=$(detect_package_manager)
 
 # Override incompatible commands for Alpine - MOVED HERE AFTER OS_TYPE is set
-if [[ "$OS_TYPE" == "alpine" ]]; then
-    hostname() { command hostname "$@"; }
-    alias hostname='hostname'
-fi
+# if [[ "$OS_TYPE" == "alpine" ]]; then
+    # hostname() { command hostname "$@"; }
+    # alias hostname='hostname'
+# fi
+
+install_script_dependencies() {
+    if ! command -v bc >/dev/null 2>&1; then
+        log_info "Installing bc..."
+        pkg_install "bc"
+    fi
+}
 
 # Package name mappings for Alpine
 init_package_lists() {
@@ -338,18 +345,22 @@ recommended_swap_mb() {
 }
 
 detect_ifaces() {
-    ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' | paste -sd, -
+    ip link show | awk -F': ' '/^[0-9]+: (e|en|eth|wlan)/ {print $2}' | head -2 | tr '\n' ',' | sed 's/,$//'
 }
 
 fmt_uptime() {
-    local up=$(uptime -p | sed 's/^up //')
-    up=$(echo "$up" | sed -E 's/weeks?/w/g; s/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g')
+    local uptime_seconds=$(awk '{print int($1)}' /proc/uptime)
+    local days=$((uptime_seconds / 86400))
+    local hours=$(((uptime_seconds % 86400) / 3600))
+    local minutes=$(((uptime_seconds % 3600) / 60))
     
-    if echo "$up" | grep -qE '[wd]'; then
-        up=$(echo "$up" | sed -E 's/[0-9]+m//g; s/[0-9]+s//g')
-    fi
+    local result=""
+    [[ $days -gt 0 ]] && result="${days}d "
+    [[ $hours -gt 0 ]] && result="${result}${hours}h "
+    [[ $minutes -gt 0 ]] && result="${result}${minutes}m"
+    [[ -z "$result" ]] && result="0m"
     
-    echo "$up" | tr -s ' ' | sed 's/ *$//'
+    echo "$result"
 }
 
 get_load_status() {
@@ -468,9 +479,11 @@ display_bandwidth_info() {
 }
 
 display_traffic_info() {
-    local BOOT_DAYS=$(echo $(($(date +%s) - $(date -d "$(who -b | awk '{print $3, $4}')" +%s))) | awk '{printf "%d days\n", $1/86400}')
+    # Get system uptime in seconds (Alpine/BusyBox compatible)
+    local uptime_seconds=$(awk '{print int($1)}' /proc/uptime)
+    local boot_days=$((uptime_seconds / 86400))
     
-    ip -s link | awk -v boot_days="$BOOT_DAYS" '
+    ip -s link | awk -v boot_days="$boot_days" '
     function human(x){
         split("B KB MB GB TB",u);
         i=1;
@@ -493,7 +506,7 @@ display_traffic_info() {
         tx=$1;
         if(iface != "lo") {
             total=rx+tx;
-            printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n", "Server", iface, boot_days, human(rx), human(tx), human(total)
+            printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n", "Server", iface, boot_days " days", human(rx), human(tx), human(total)
         }
     }' | head -3
 }
@@ -1325,7 +1338,7 @@ configure_hostname() {
         return
     fi
     
-    if hostnamectl set-hostname "$new_hostname" 2>/dev/null; then
+    if echo "$new_hostname" > /etc/hostname && hostname "$new_hostname" 2>/dev/null; then
         echo "$new_hostname" > /etc/hostname
         
         if grep -q "127.0.1.1" /etc/hosts 2>/dev/null; then
@@ -1891,7 +1904,8 @@ main_menu() {
 
 main() {
     require_root
-    
+    install_script_dependencies
+	
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
     
     echo "=== Server Setup Essentials $VERSION - $(date) ===" > "$LOG_FILE"
