@@ -72,12 +72,23 @@ detect_os() {
 }
 
 check_installation() {
-    # Check V2bX
-    if [ -d "$V2BX_PATH" ] && [ -f "$V2BX_PATH/V2bX" ]; then
+    # Check V2bX - multiple methods
+    V2BX_INSTALLED=false
+    
+    # Method 1: Check if process is running
+    if pgrep -f "V2bX" >/dev/null; then
         V2BX_INSTALLED=true
-        if pgrep -f "V2bX" >/dev/null; then
-            V2BX_RUNNING=true
-        fi
+        V2BX_RUNNING=true
+    fi
+    
+    # Method 2: Check binary at standard location
+    if [ -f "$V2BX_PATH/V2bX" ] || [ -f "$V2BX_PATH/v2bx" ] || [ -f "/usr/local/bin/V2bX" ] || [ -f "/usr/bin/V2bX" ]; then
+        V2BX_INSTALLED=true
+    fi
+    
+    # Method 3: Check if config exists (strong indicator)
+    if [ -f "$V2BX_PATH/config.json" ]; then
+        V2BX_INSTALLED=true
     fi
     
     # Check vnstat
@@ -536,7 +547,7 @@ main() {
     check_installation
     
     while true; do
-        show_dashboard
+        show_dashboardf
         show_menu
         read -p " Choose option [1-8]: " choice
         
