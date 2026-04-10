@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.4"
+VERSION="v2.5.5"
 set -euo pipefail
 
 #######################################
@@ -102,6 +102,25 @@ detect_package_manager() {
 
 OS_TYPE=$(detect_os)
 PKG_MANAGER=$(detect_package_manager)
+
+# Detect Alpine Linux
+redirect_to_alpine_version() {
+    echo -e "${YELLOW}Alpine Linux detected. Redirecting to Alpine version...${RESET}"
+    
+    # Install curl if not present
+    if ! command -v curl >/dev/null 2>&1; then
+        echo -e "${YELLOW}Installing curl...${RESET}"
+        if command -v apk &>/dev/null; then
+            apk update && apk add curl
+        else
+            apt update -y && apt install -y curl
+        fi
+    fi
+    
+    # Download and execute Alpine version
+    bash <(curl -fsSL "https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials_alpine.sh?$(date +%s)" | sed 's/\r$//')
+    exit 0
+}
 
 # Package name mappings
 init_package_lists() {
@@ -2142,6 +2161,12 @@ main_menu() {
 
 main() {
     require_root
+	
+	# Check for Alpine and redirect
+    if [[ -f /etc/alpine-release ]]; then
+        redirect_to_alpine_version
+    fi
+	
 	install_script_dependencies
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
     
