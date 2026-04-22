@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.5"
+VERSION="v2.5.6"
 set -euo pipefail
 
 #######################################
@@ -578,6 +578,7 @@ display_network_info() {
     local IPV4=$(hostname -I | awk '{print $1}')
 	local IPV4_onlineIP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "")"
     local IPV6=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
+	local IPV6_onlineIP="$(curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null || curl -6 -s --max-time 3 https://api64.ipify.org 2>/dev/null || echo "N/A")"
     local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
     local q_status=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
     
@@ -590,6 +591,7 @@ display_network_info() {
 	
 	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Network:" "$IPV4" "$bbr_display + $qdisc_display"
 	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Internet:" "$IPV4_onlineIP" "$ipv6_status"
+	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  IPv6:" "$IPV6_onlineIP"
 	
     # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  BBR + QDisc:" "$bbr_display + $qdisc_display"
 	# printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4 ($ipv6_status)"
