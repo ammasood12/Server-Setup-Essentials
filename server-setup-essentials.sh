@@ -576,9 +576,9 @@ display_resource_usage() {
 
 display_network_info() {
     local IPV4=$(hostname -I | awk '{print $1}')
-	local IPV4_onlineIP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "")"
+	local IPV4_onlineIP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
     local IPV6=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
-	local IPV6_onlineIP="$(curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null || curl -6 -s --max-time 3 https://api64.ipify.org 2>/dev/null || echo "N/A")"
+	local IPV6_onlineIP="$(curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
     local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
     local q_status=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
     
