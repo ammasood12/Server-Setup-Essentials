@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1.3"
+VERSION="v2.5.6.1.2"
 set -euo pipefail
 
 #######################################
@@ -596,7 +596,8 @@ display_network_info() {
     
     local ipv6_status=$([ -n "$IPV6" ] && echo -e "${GREEN}IPv6 ✓${RESET}" || echo -e "${RED}IPv6 ✗${RESET}")
     local bbr_display=$([ "$bbr_status" == "bbr" ] || [ "$bbr_status" == "bbr2" ] && echo -e "${GREEN}${bbr_status^^} ✓${RESET}" || echo -e "${RED}${bbr_status} ✗${RESET}")
-    local qdisc_display=$([ echo -e "${GREEN}${q_status^^} ✓${RESET}" || echo -e "${RED}${q_status} ✗${RESET}")
+    # local qdisc_display=$([ echo -e "${GREEN}${q_status^^} ✓${RESET}" || echo -e "${RED}${q_status} ✗${RESET}")
+	local qdisc_display=$([ -n "$q_status" ] && echo -e "${GREEN}${q_status^^} ✓${RESET}" || echo -e "${RED}Not Set ✗${RESET}")
         
     # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  Network:" "$IPV4  $bbr_display + $qdisc_display"
     # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  Internet:" "$IPV4_onlineIP ($ipv6_status)"
