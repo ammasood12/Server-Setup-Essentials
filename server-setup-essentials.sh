@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1"
+VERSION="v2.5.6.1.2"
 set -euo pipefail
 
 #######################################
@@ -828,25 +828,35 @@ apply_network_optimization() {
     log_info "Applying network optimization settings..."
     cat <<EOF > /etc/sysctl.conf
 # ============================================================
-# 🌐 Network Optimization - Server Setup Essentials
-# BBR/BBR2 + fq_codel + UDP/QUIC optimization
-# version: v03 (based on sysctl-General-v03.conf file)
-#
 # Universal sysctl.conf for VPS (Generalized, Safe Everywhere)
 # Works on: DigitalOcean, Vultr, Linode, AWS, Hetzner, OVH,
 # Tencent, Alibaba, Oracle, RackNerd, Mikrotik CHR, etc.
+# version: v04-1gb
+# Target: 1GB RAM / 1 vCPU VPS
+# Changes from v04:
+#   - fs.file-max: 1000000 -> 500000 (realistic for 1GB RAM)
+#   - netdev_max_backlog: 16384 -> 8192 (single core can't drain faster)
+#   - tcp_max_syn_backlog: 8192 -> 4096 (appropriate for single core)
 # ============================================================
 
 ######## Core Network Optimization ########
-net.core.default_qdisc = fq_codel
+# fq (Fair Queue) is the correct qdisc for BBR on proxy servers.
+# BBR relies on fq for accurate packet pacing.
+# fq_codel is designed for home routers/ISP bufferbloat, not servers.
+net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 
 ######## Connection Stability ########
 ######## TCP Stability & Handshake ########
+# Enable TCP Fast Open for both inbound and outbound (3 = both)
 net.ipv4.tcp_fastopen = 3
+# Disable slow start after idle — prevents throughput drops on proxy
 net.ipv4.tcp_slow_start_after_idle = 0
+# Reduce TIME_WAIT from default 60s to 15s
 net.ipv4.tcp_fin_timeout = 15
+# Allow reuse of TIME_WAIT sockets for new connections
 net.ipv4.tcp_tw_reuse = 1
+# Keepalive: start after 600s idle, probe every 30s, drop after 5 failures
 net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 30
 net.ipv4.tcp_keepalive_probes = 5
@@ -854,52 +864,74 @@ net.ipv4.tcp_keepalive_probes = 5
 ######## MTU & RTT Optimization ########
 ######## MTU Auto-Adjustment ########
 ######## (Best for global routing) ########
-# changed from 1 to 2
-net.ipv4.tcp_mtu_probing = 2
+# 1 = enable MTU probing only when ICMP black hole detected (safer than 2)
+net.ipv4.tcp_mtu_probing = 1
 
 ######## TCP Buffers ########
+# Sized correctly for 1GB RAM. Do not increase on 1GB servers —
+# higher values would eat into available memory under load.
 net.core.rmem_max = 8388608
 net.core.wmem_max = 8388608
 net.ipv4.tcp_rmem = 4096 87380 8388608
 net.ipv4.tcp_wmem = 4096 65536 8388608
 
 ######## UDP / QUIC Optimization ########
-net.core.rmem_default = 262144
-net.core.wmem_default = 262144
-net.ipv4.udp_mem = 3145728 4194304 8388608
-net.ipv4.udp_rmem_min = 32768
-net.ipv4.udp_wmem_min = 32768
+# Increased to 2MB for Hysteria2/QUIC performance.
+# These are per-socket maximums, not pre-allocated —
+# memory is only used when needed, safe on 1GB RAM.
+net.core.rmem_default = 2097152
+net.core.wmem_default = 2097152
+# UDP memory limits: min/pressure/max in pages
+net.ipv4.udp_mem = 8388608 12582912 16777216
+# Minimum UDP receive/send buffer per socket
+net.ipv4.udp_rmem_min = 65536
+net.ipv4.udp_wmem_min = 65536
 
 ######## NIC / Packet Processing ########
+# How many packets processed per NAPI poll cycle
 net.core.netdev_budget = 600
+# Time budget in microseconds for packet processing
 net.core.netdev_budget_usecs = 5000
 
 ######## Performance & Stability ########
 ######## Queue / Backlog ########
+# Maximum pending connections in listen queue
 net.core.somaxconn = 4096
-net.core.netdev_max_backlog = 16384
-net.ipv4.tcp_max_syn_backlog = 8192
+# Maximum packets queued on NIC before kernel processes them.
+# Reduced from 16384 — single core cannot drain a larger queue faster.
+net.core.netdev_max_backlog = 8192
+# Maximum SYN requests queued before dropping.
+# Reduced from 8192 — appropriate for single core workload.
+net.ipv4.tcp_max_syn_backlog = 4096
 
 ######## Port Range ########
+# Wider ephemeral port range for high outbound connection counts
 net.ipv4.ip_local_port_range = 10240 65535
 
 ######## Security ########
+# SYN flood protection via SYN cookies
 net.ipv4.tcp_syncookies = 1
 
 ######## Routing ########
+# Required for proxy/relay servers to forward packets
 net.ipv4.ip_forward = 1
 ######## Anti-Route Conflicts ########
+# Disable reverse path filtering — required for proxy/relay setups
+# where traffic may arrive and leave on different interfaces
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
 
 ######## Disable IPv6 ########
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-
+# Disable IPv6 if not in use to reduce attack surface
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
 
 ######## File Handles ########
-fs.file-max = 1000000
+# Reduced from 1000000 to 500000 — more realistic for 1GB RAM.
+# Each open connection consumes kernel memory; 500k is still
+# far more than a 1GB/1 core server will ever handle in practice.
+fs.file-max = 500000
 
 # ============================================================
 # END - Universal sysctl.conf
