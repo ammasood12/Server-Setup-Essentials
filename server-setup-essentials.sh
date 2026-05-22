@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1.2"
+VERSION="v2.5.6.1"
 set -euo pipefail
 
 #######################################
@@ -869,9 +869,12 @@ net.ipv4.tcp_fin_timeout = 15
 # Allow reuse of TIME_WAIT sockets for new connections
 net.ipv4.tcp_tw_reuse = 1
 # Keepalive: start after 600s idle, probe every 30s, drop after 5 failures
-net.ipv4.tcp_keepalive_time = 600
+# match clash keep-alive-idle
+net.ipv4.tcp_keepalive_time = 120
+# match clash keep-alive-interval
 net.ipv4.tcp_keepalive_intvl = 30
-net.ipv4.tcp_keepalive_probes = 5
+# faster cleanup
+net.ipv4.tcp_keepalive_probes = 3
 
 ######## MTU & RTT Optimization ########
 ######## MTU Auto-Adjustment ########
@@ -918,7 +921,7 @@ net.ipv4.tcp_max_syn_backlog = 4096
 
 ######## Port Range ########
 # Wider ephemeral port range for high outbound connection counts
-net.ipv4.ip_local_port_range = 10240 65535
+# net.ipv4.ip_local_port_range = 10240 65535
 
 ######## Security ########
 # SYN flood protection via SYN cookies
