@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # phi-nginx — PhiCloud Nginx WS Setup Tool
-# Version : 2.0.0
+# Version : 2.1.0
 # Author  : PhiCloud
 # =============================================================================
 #
@@ -80,7 +80,7 @@
 #
 # =============================================================================
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 CONFIG_DIR="/etc/phi-nginx"
 CONFIG_FILE="$CONFIG_DIR/config.conf"
 NGINX_SITES="/etc/nginx/sites-available"
@@ -141,6 +141,77 @@ load_config() {
     WS_PATHS=("${WS_PATHS[@]}")
     WS_PORTS=("${WS_PORTS[@]}")
     WS_TYPES=("${WS_TYPES[@]}")
+}
+
+clear_config() {
+    # Reset all state variables and wipe config file
+    DOMAIN=""
+    WS_PATHS=()
+    WS_PORTS=()
+    WS_TYPES=()
+    CERT_MODE=""
+    CERT_FULLCHAIN=""
+    CERT_KEY=""
+    FAKE_SITE_ROOT=""
+    SITE_COMPANY=""
+    SITE_TAGLINE=""
+    SITE_SLUG=""
+    SITE_SUB=""
+    SITE_SCHEME=""
+    save_config
+}
+
+# Remove a WS path entry from phi-nginx config by port number
+# Usage: remove_ws_path_by_port <port>
+remove_ws_path_by_port() {
+    local target_port="$1"
+    local new_paths=() new_ports=() new_types=()
+    local i=0
+    for p in "${WS_PATHS[@]}"; do
+        local port; port=$(echo "${WS_PORTS[$i]}" | tr -d '"')
+        if [[ "$port" != "$target_port" ]]; then
+            new_paths+=("${WS_PATHS[$i]}")
+            new_ports+=("${WS_PORTS[$i]}")
+            new_types+=("${WS_TYPES[$i]}")
+        fi
+        ((i++))
+    done
+    WS_PATHS=("${new_paths[@]}")
+    WS_PORTS=("${new_ports[@]}")
+    WS_TYPES=("${new_types[@]}")
+}
+
+# Show WS paths and let user pick one to remove from phi-nginx config
+sync_remove_ws_path() {
+    if [[ ${#WS_PATHS[@]} -eq 0 ]]; then
+        info "No WS paths in phi-nginx config to remove"
+        return
+    fi
+    echo ""
+    echo "  Configured WS paths in phi-nginx:"
+    local i=0
+    for p in "${WS_PATHS[@]}"; do
+        local port; port=$(echo "${WS_PORTS[$i]}" | tr -d '"')
+        echo "    $((i+1))) ${p//\"/} → port ${port} (${WS_TYPES[$i]//\"/})"
+        ((i++))
+    done
+    echo "    s) Skip — don't update phi-nginx config"
+    echo ""
+    read -rp "  Remove which path from phi-nginx config? " path_sel
+    if [[ "$path_sel" =~ ^[0-9]+$ ]] && (( path_sel >= 1 && path_sel <= ${#WS_PATHS[@]} )); then
+        local idx=$((path_sel - 1))
+        local port; port=$(echo "${WS_PORTS[$idx]}" | tr -d '"')
+        remove_ws_path_by_port "$port"
+        save_config
+        # Rebuild nginx config if nginx is installed
+        if command -v nginx &>/dev/null && [[ -f "${NGINX_SITES}/phi-${DOMAIN}" ]]; then
+            build_nginx_config > "${NGINX_SITES}/phi-${DOMAIN}"
+            nginx -t &>/dev/null && systemctl reload nginx && success "Nginx config updated"
+        fi
+        success "Path removed from phi-nginx config"
+    else
+        info "Skipped — phi-nginx config unchanged"
+    fi
 }
 
 save_config() {
@@ -279,7 +350,8 @@ module_config() {
     # Default internal port
     local default_port=10001
     if [[ ${#WS_PORTS[@]} -gt 0 ]]; then
-        default_port=$((${WS_PORTS[-1]//\"/} + 1))
+        local last_port; last_port=$(echo "${WS_PORTS[-1]}" | tr -d '"')
+        default_port=$((last_port + 1))
     fi
     read -rp "  Internal WS port [${default_port}]: " input_port
     local ws_port="${input_port:-$default_port}"
@@ -1437,7 +1509,9 @@ with open('$V2BX_CONFIG') as f: d = json.load(f)
 d['Nodes'] = [n for n in d.get('Nodes',[]) if str(n.get('NodeID')) != '$del_id']
 with open('$V2BX_CONFIG','w') as f: json.dump(d, f, indent=2)
 print('ok')
-" && success "NodeID $del_id removed"
+" && success "NodeID $del_id removed from V2bX config"
+                    # Offer to sync phi-nginx WS path config
+                    sync_remove_ws_path
                     confirm "Restart V2bX now?" && systemctl restart V2bX
                 fi
                 ;;
@@ -1495,17 +1569,24 @@ module_status() {
         info "Cert expires: $exp"
     fi
 
-    # Internal ports
+    # Internal ports — deduplicate
     echo ""
+    local checked_ports=()
     local i=0
     for path_raw in "${WS_PATHS[@]}"; do
-        local port="${WS_PORTS[$i]//\"/}"
+        local port; port=$(echo "${WS_PORTS[$i]}" | tr -d '"')
         local type="${WS_TYPES[$i]//\"/}"
         local path_clean="${path_raw//\"/}"
-        if ss -tlnp | grep -q ":${port}"; then
-            success "Internal port ${port} (${type}): listening"
-        else
-            warn "Internal port ${port} (${type}): NOT listening — V2bX node may not be registered"
+        # Skip if already checked this port
+        local already=0
+        for cp in "${checked_ports[@]}"; do [[ "$cp" == "$port" ]] && already=1; done
+        if [[ $already -eq 0 ]]; then
+            if ss -tlnp | grep -q ":${port}"; then
+                success "Internal port ${port} (${type}): listening"
+            else
+                warn "Internal port ${port} (${type}): NOT listening — V2bX node may not be registered"
+            fi
+            checked_ports+=("$port")
         fi
         ((i++))
     done
@@ -1591,8 +1672,11 @@ module_uninstall() {
                 confirm "Remove domain config for ${DOMAIN}?" || { pause; continue; }
                 rm -f "${NGINX_SITES}/phi-${DOMAIN}" "${NGINX_ENABLED}/phi-${DOMAIN}"
                 [[ -n "$FAKE_SITE_ROOT" ]] && rm -rf "$FAKE_SITE_ROOT"
-                nginx -t &>/dev/null && systemctl reload nginx
+                systemctl is-active --quiet nginx && nginx -t &>/dev/null && systemctl reload nginx
                 success "Domain config removed. Nginx still running."
+                # Clear phi-nginx config so stale state doesn't persist
+                clear_config
+                success "phi-nginx config cleared"
                 ;;
             2)
                 confirm "REMOVE NGINX COMPLETELY? This affects ALL sites on this server." || { pause; continue; }
@@ -1608,7 +1692,8 @@ module_uninstall() {
                 rm -rf /var/www/phi-fake
                 rm -f /etc/systemd/system/V2bX.service.d/nginx-reload.conf
                 systemctl daemon-reload
-                success "Nginx removed"
+                clear_config
+                success "Nginx removed and phi-nginx config cleared"
                 ;;
             3)
                 echo ""
@@ -1624,7 +1709,9 @@ import json
 with open('$V2BX_CONFIG') as f: d=json.load(f)
 d['Nodes']=[n for n in d.get('Nodes',[]) if str(n.get('NodeID'))!='$del_id']
 with open('$V2BX_CONFIG','w') as f: json.dump(d,f,indent=2)
-" && success "NodeID $del_id removed"
+" && success "NodeID $del_id removed from V2bX config"
+                    # Offer to sync phi-nginx config
+                    sync_remove_ws_path
                     confirm "Restart V2bX?" && systemctl restart V2bX
                 fi
                 ;;
