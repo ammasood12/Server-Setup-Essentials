@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1"
+VERSION="v2.5.6.1.0"
 set -euo pipefail
 
 #######################################
@@ -921,7 +921,7 @@ net.ipv4.tcp_max_syn_backlog = 4096
 
 ######## Port Range ########
 # Wider ephemeral port range for high outbound connection counts
-# net.ipv4.ip_local_port_range = 10240 65535
+net.ipv4.ip_local_port_range = 10240 65535
 
 ######## Security ########
 # SYN flood protection via SYN cookies
