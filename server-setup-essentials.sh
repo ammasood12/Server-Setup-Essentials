@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1.0"
+VERSION="v2.5.6.1"
 set -euo pipefail
 
 #######################################
@@ -577,18 +577,25 @@ display_resource_usage() {
 display_network_info() {
     local IPV4=$(hostname -I | awk '{print $1}')
 	# local IPV4_onlineIP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
+	# curl -4 -s --max-time 3 https://api4.my-ip.io/ip 2>/dev/null ||
 	local IPV4_onlineIP="$(
+		curl -4 -s --max-time 3 https://ping0.cc 2>/dev/null ||
+		curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
 		curl -4 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
 		curl -4 -s --max-time 3 https://ipv4.icanhazip.com 2>/dev/null ||
 		curl -4 -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null ||
+		curl -4 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
 		echo "N/A"
 	)"
     local IPV6=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
 	# local IPV6_onlineIP="$(curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
+	# curl -6 -s --max-time 3 https://api6.my-ip.io/ip 2>/dev/null ||
 	local IPV6_onlineIP="$(
+		curl -6 -s --max-time 3 https://ping0.cc 2>/dev/null ||
 		curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
+		curl -6 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
 		curl -6 -s --max-time 3 https://ipv6.icanhazip.com 2>/dev/null ||
-		curl -6 -s --max-time 3 https://api6.my-ip.io/ip 2>/dev/null ||
+		curl -6 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
 		echo "N/A"
 	)"
     local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
