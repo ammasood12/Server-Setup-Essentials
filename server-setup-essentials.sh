@@ -850,8 +850,13 @@ apply_network_optimization() {
 # Universal sysctl.conf for VPS (Generalized, Safe Everywhere)
 # Works on: DigitalOcean, Vultr, Linode, AWS, Hetzner, OVH,
 # Tencent, Alibaba, Oracle, RackNerd, Mikrotik CHR, etc.
-# version: v04-1gb
+# version: v05-1gb
 # Target: 1GB RAM / 1 vCPU VPS
+# Changes from v05:
+#   - ip_local_port_range: uncommented (critical for NAT proxy port exhaustion)
+#   - vm.swappiness = 10: added (only takes effect if swap file exists)
+#   - Fixed stale comment on tcp_keepalive_time (was "600s", value is 120s)
+#   - Fixed stale comment on tcp_keepalive_probes (was "5 failures", value is 3)
 # Changes from v04:
 #   - fs.file-max: 1000000 -> 500000 (realistic for 1GB RAM)
 #   - netdev_max_backlog: 16384 -> 8192 (single core can't drain faster)
@@ -875,12 +880,12 @@ net.ipv4.tcp_slow_start_after_idle = 0
 net.ipv4.tcp_fin_timeout = 15
 # Allow reuse of TIME_WAIT sockets for new connections
 net.ipv4.tcp_tw_reuse = 1
-# Keepalive: start after 600s idle, probe every 30s, drop after 5 failures
+# Keepalive: start after 120s idle, probe every 30s, drop after 3 failures
 # match clash keep-alive-idle
 net.ipv4.tcp_keepalive_time = 120
 # match clash keep-alive-interval
 net.ipv4.tcp_keepalive_intvl = 30
-# faster cleanup
+# drop dead connections faster — 3 probes x 30s = 90s to detect failure
 net.ipv4.tcp_keepalive_probes = 3
 
 ######## MTU & RTT Optimization ########
@@ -890,7 +895,9 @@ net.ipv4.tcp_keepalive_probes = 3
 net.ipv4.tcp_mtu_probing = 1
 
 ######## TCP Buffers ########
-# Sized correctly for 1GB RAM. Do not increase on 1GB servers —
+# Safe for 512MB+ RAM on proxy workloads. Ceiling of 8MB per socket is only
+# Maximums are not pre-allocated — memory is only used per-socket when needed.
+# reached under sustained high-throughput transfers, not typical proxy traffic.
 # higher values would eat into available memory under load.
 net.core.rmem_max = 8388608
 net.core.wmem_max = 8388608
@@ -954,6 +961,13 @@ net.ipv6.conf.lo.disable_ipv6 = 0
 # Each open connection consumes kernel memory; 500k is still
 # far more than a 1GB/1 core server will ever handle in practice.
 fs.file-max = 500000
+
+######## Virtual Memory ########
+# Only effective if a swap file/partition exists — kernel ignores this
+# when no swap is configured. 10 = use swap only as last resort,
+# keeping data in RAM to minimize latency. Default is 60 (too aggressive
+# for a proxy server where RAM eviction causes connection latency spikes).
+vm.swappiness = 10
 
 # ============================================================
 # END - Universal sysctl.conf
