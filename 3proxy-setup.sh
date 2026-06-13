@@ -6,8 +6,6 @@
 
 VERSION="1.0.0"
 
-set -e
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -185,8 +183,8 @@ do_install() {
 
     echo ""
     info "Installing 3proxy..."
-    apt-get update -qq
-    apt-get install -y 3proxy > /dev/null 2>&1
+    apt-get update -qq || die "apt-get update failed"
+    apt-get install -y 3proxy > /dev/null 2>&1 || die "apt-get install 3proxy failed"
 
     mkdir -p /etc/3proxy
     write_config "$SOCKS_PORT" "$MAXCONN" "${PROXY_USER}:CL:${PROXY_PASS}"
