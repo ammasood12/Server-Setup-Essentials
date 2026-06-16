@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.2.1"
+VERSION="v2.5.6.2"
 set -euo pipefail
 
 #######################################
@@ -994,6 +994,7 @@ After=network.target
 Type=oneshot
 ExecStart=/sbin/sysctl --ignore -p
 RemainAfterExit=yes
+SuccessExitStatus=1
 
 [Install]
 WantedBy=multi-user.target
