@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.1"
+VERSION="v2.5.6.2"
 set -euo pipefail
 
 #######################################
@@ -974,7 +974,7 @@ vm.swappiness = 10
 # ============================================================
 EOF
 
-    if sysctl -p >/dev/null 2>&1; then
+    if sysctl --ignore -p >/dev/null 2>&1; then
         log_ok "Network optimization applied successfully with ${bbr_mode}"
         sub_section "Verification"
         echo -e "${GREEN}✓ Congestion Control:${RESET} $(sysctl -n net.ipv4.tcp_congestion_control)"
@@ -984,6 +984,29 @@ EOF
         log_error "Failed to apply network optimization"
         return 1
     fi
+	
+	install_sysctl_service
+}
+
+install_sysctl_service() {
+    log_info "Installing persistent sysctl reload service..."
+    cat > /etc/systemd/system/sysctl-reload.service << 'EOF'
+[Unit]
+Description=Reload sysctl settings on boot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/sysctl --ignore -p
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable sysctl-reload
+    systemctl start sysctl-reload
+    log_ok "sysctl-reload service installed and enabled"
 }
 
 restore_network_settings() {
