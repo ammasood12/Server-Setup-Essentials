@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.3"
+VERSION="v2.5.6.3.1"
 set -euo pipefail
 
 #######################################
@@ -292,18 +292,21 @@ log_error() {
 init_session_cache() {
     echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}Initializing dashboard (one-time fetch)...${RESET}"
 
+    # NOTE: Every assignment uses "|| true" so set -e never kills the script
+    # when a subcommand returns non-zero (e.g. no IPv6, empty grep, etc.)
+
     # --- Static system info (instant) ---
-    SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname)
-    SESSION_OS=$(get_os_info)
-    SESSION_KERNEL=$(uname -r)
-    SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/\<Processor\>//g' | xargs)
-    SESSION_CORES=$(nproc)
-    SESSION_DISK_TYPE=$(get_disk_type)
+    SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname || true)
+    SESSION_OS=$(get_os_info || true)
+    SESSION_KERNEL=$(uname -r || true)
+    SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed 's/\<Processor\>//g' | xargs 2>/dev/null || true)
+    SESSION_CORES=$(nproc 2>/dev/null || true)
+    SESSION_DISK_TYPE=$(get_disk_type 2>/dev/null || true)
 
     # --- Network stack (instant) ---
-    SESSION_BBR_STATUS=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
-    SESSION_QDISC_STATUS=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
-    SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
+    SESSION_BBR_STATUS=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}' || true)
+    SESSION_QDISC_STATUS=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}' || true)
+    SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep inet6 2>/dev/null | head -1 | awk '{print $2}' | cut -d'/' -f1 || true)
 
     # --- Public IPs (slow — curl with fallback chain) ---
     SESSION_IPV4_ONLINE="$(
@@ -314,7 +317,7 @@ init_session_cache() {
         curl -4 -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null ||
         curl -4 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
         echo "N/A"
-    )"
+    )" || SESSION_IPV4_ONLINE="N/A"
     SESSION_IPV6_ONLINE="$(
         curl -6 -s --max-time 3 https://ping0.cc 2>/dev/null ||
         curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
@@ -322,11 +325,11 @@ init_session_cache() {
         curl -6 -s --max-time 3 https://ipv6.icanhazip.com 2>/dev/null ||
         curl -6 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
         echo "N/A"
-    )"
+    )" || SESSION_IPV6_ONLINE="N/A"
 
     # --- vnStat (fast, but run once) ---
     if command -v vnstat >/dev/null 2>&1; then
-        SESSION_VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}')
+        SESSION_VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}' || true)
         SESSION_VNSTAT_OUTPUT=$(vnstat --oneline 2>/dev/null || true)
     fi
 
