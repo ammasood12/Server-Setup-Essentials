@@ -9,8 +9,29 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.2"
+VERSION="v2.5.6.3"
 set -euo pipefail
+
+#######################################
+
+###### Session Cache ######
+# Populated once at startup by init_session_cache()
+# Reused on every dashboard render — no repeated curl/vnstat calls
+
+SESSION_IPV4_ONLINE=""
+SESSION_IPV6_ONLINE=""
+SESSION_IPV6_LOCAL=""
+SESSION_BBR_STATUS=""
+SESSION_QDISC_STATUS=""
+SESSION_VNSTAT_VERSION=""
+SESSION_VNSTAT_OUTPUT=""
+SESSION_HOSTNAME=""
+SESSION_OS=""
+SESSION_KERNEL=""
+SESSION_CPU=""
+SESSION_CORES=""
+SESSION_DISK_TYPE=""
+SESSION_CACHE_READY=0
 
 #######################################
 
@@ -266,6 +287,54 @@ log_error() {
 
 #######################################
 
+###### Session Cache Initialization ######
+
+init_session_cache() {
+    echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}Initializing dashboard (one-time fetch)...${RESET}"
+
+    # --- Static system info (instant) ---
+    SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname)
+    SESSION_OS=$(get_os_info)
+    SESSION_KERNEL=$(uname -r)
+    SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/\<Processor\>//g' | xargs)
+    SESSION_CORES=$(nproc)
+    SESSION_DISK_TYPE=$(get_disk_type)
+
+    # --- Network stack (instant) ---
+    SESSION_BBR_STATUS=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
+    SESSION_QDISC_STATUS=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
+    SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
+
+    # --- Public IPs (slow — curl with fallback chain) ---
+    SESSION_IPV4_ONLINE="$(
+        curl -4 -s --max-time 3 https://ping0.cc 2>/dev/null ||
+        curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
+        curl -4 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
+        curl -4 -s --max-time 3 https://ipv4.icanhazip.com 2>/dev/null ||
+        curl -4 -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null ||
+        curl -4 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
+        echo "N/A"
+    )"
+    SESSION_IPV6_ONLINE="$(
+        curl -6 -s --max-time 3 https://ping0.cc 2>/dev/null ||
+        curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
+        curl -6 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
+        curl -6 -s --max-time 3 https://ipv6.icanhazip.com 2>/dev/null ||
+        curl -6 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
+        echo "N/A"
+    )"
+
+    # --- vnStat (fast, but run once) ---
+    if command -v vnstat >/dev/null 2>&1; then
+        SESSION_VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}')
+        SESSION_VNSTAT_OUTPUT=$(vnstat --oneline 2>/dev/null || true)
+    fi
+
+    SESSION_CACHE_READY=1
+}
+
+#######################################
+
 ###### Utility Functions ######
 
 require_root() {
@@ -461,22 +530,21 @@ display_system_status() {
 }
 
 display_bandwidth_info() {
+    # vnStat data is read from the session cache populated at startup.
     local INTERFACES=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -2 | tr '\n' ',' | sed 's/,$//')
-    
-    if command -v vnstat >/dev/null 2>&1; then
-        local VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}')
-        local vnstat_output=$(vnstat --oneline 2>/dev/null)
-        
+
+    if [[ -n "$SESSION_VNSTAT_VERSION" ]]; then
+        local vnstat_output="$SESSION_VNSTAT_OUTPUT"
         if [[ -n "$vnstat_output" ]]; then
             local vnstat_month=$(echo "$vnstat_output" | awk -F';' '{print $8}')
             local vnstat_rx=$(echo "$vnstat_output" | awk -F';' '{print $9}')
             local vnstat_tx=$(echo "$vnstat_output" | awk -F';' '{print $10}')
             local vnstat_total=$(echo "$vnstat_output" | awk -F';' '{print $11}')
-            
+
             printf "${YELLOW}%-14s${RESET} %-9s %-9s ${GREEN}%-10s${RESET} ${CYAN}%-10s${RESET} ${MAGENTA}%-10s${RESET}\n" \
                 "" "iface" "Duration" "RX/UL" "TX/DL" "Total"
             printf "${YELLOW}%-14s${RESET} %-9s %-9s %-10s %-10s %-10s\n" \
-                "  vnStat $VNSTAT_VERSION" "$INTERFACES" "$vnstat_month" "$vnstat_rx" "$vnstat_tx" "$vnstat_total"
+                "  vnStat $SESSION_VNSTAT_VERSION" "$INTERFACES" "$vnstat_month" "$vnstat_rx" "$vnstat_tx" "$vnstat_total"
         else
             printf "${YELLOW}%-14s${RESET} ${RED}%-46s${RESET}\n" \
                 "  Bandwidth:" "Collecting data..."
@@ -519,18 +587,10 @@ display_traffic_info() {
 }
 
 display_system_info() {
-    local HOSTNAME=$(hostname -f 2>/dev/null || hostname)
-    # local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-    local OS=$(get_os_info)
-    local KERNEL=$(uname -r)
-    local CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/\<Processor\>//g' | xargs)
-    local CORES=$(nproc)
-    
-    printf "${YELLOW}%-14s${RESET} %-46s\n" "  Hostname:" "$HOSTNAME"
-    # printf "${YELLOW}%-14s${RESET} %-46s\n" "  OS:" "$OS"
-    # printf "${YELLOW}%-14s${RESET} %-46s\n" "  Kernel:" "$KERNEL"
-	printf "${YELLOW}%-14s${RESET} %-22s ${GRAY}%s${RESET}\n" "  OS:" "$OS" "(Kernel: $KERNEL)" 
-    printf "${YELLOW}%-14s${RESET} %-46s\n" "  CPU:" "$CPU ($CORES cores)"
+    # Static values read from session cache (populated once at startup).
+    printf "${YELLOW}%-14s${RESET} %-46s\n" "  Hostname:" "$SESSION_HOSTNAME"
+    printf "${YELLOW}%-14s${RESET} %-22s ${GRAY}%s${RESET}\n" "  OS:" "$SESSION_OS" "(Kernel: $SESSION_KERNEL)"
+    printf "${YELLOW}%-14s${RESET} %-46s\n" "  CPU:" "$SESSION_CPU ($SESSION_CORES cores)"
 }
 
 display_resource_usage() {
@@ -547,7 +607,7 @@ display_resource_usage() {
     # Disk
     local disk_color=$(get_disk_status "$DISK_PERCENT")
     printf "${YELLOW}%-14s${RESET} ${disk_color}%-22s${RESET} %s\n" "  Disk:" \
-        "${DISK_USED} / ${DISK_TOTAL} (${DISK_PERCENT})" "$(get_disk_type)"
+        "${DISK_USED} / ${DISK_TOTAL} (${DISK_PERCENT})" "$SESSION_DISK_TYPE"
 		
     # Load Average
     printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Load Avg:" "$LOAD" "$(get_load_status "$load1" "$CORES")"
@@ -575,57 +635,33 @@ display_resource_usage() {
 }
 
 display_network_info() {
+    # All slow data (curl/sysctl) is read from the session cache populated at startup.
     local IPV4=$(hostname -I | awk '{print $1}')
-	# local IPV4_onlineIP="$(curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
-	# curl -4 -s --max-time 3 https://api4.my-ip.io/ip 2>/dev/null ||
-	local IPV4_onlineIP="$(
-		curl -4 -s --max-time 3 https://ping0.cc 2>/dev/null ||
-		curl -4 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
-		curl -4 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
-		curl -4 -s --max-time 3 https://ipv4.icanhazip.com 2>/dev/null ||
-		curl -4 -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null ||
-		curl -4 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
-		echo "N/A"
-	)"
-    local IPV6=$(ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d'/' -f1)
-	# local IPV6_onlineIP="$(curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "N/A")"
-	# curl -6 -s --max-time 3 https://api6.my-ip.io/ip 2>/dev/null ||
-	local IPV6_onlineIP="$(
-		curl -6 -s --max-time 3 https://ping0.cc 2>/dev/null ||
-		curl -6 -s --max-time 3 https://ifconfig.me 2>/dev/null ||
-		curl -6 -s --max-time 3 https://api.ipify.org 2>/dev/null ||
-		curl -6 -s --max-time 3 https://ipv6.icanhazip.com 2>/dev/null ||
-		curl -6 -s --max-time 3 https://api.ipinfo.io/ip 2>/dev/null ||
-		echo "N/A"
-	)"
-    local bbr_status=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
-    local q_status=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}')
-    
+    local IPV4_onlineIP="$SESSION_IPV4_ONLINE"
+    local IPV6_onlineIP="$SESSION_IPV6_ONLINE"
+    local IPV6="$SESSION_IPV6_LOCAL"
+    local bbr_status="$SESSION_BBR_STATUS"
+    local q_status="$SESSION_QDISC_STATUS"
+
     local ipv6_status=$([ -n "$IPV6" ] && echo -e "${GREEN}IPv6 ✓${RESET}" || echo -e "${RED}IPv6 ✗${RESET}")
     local bbr_display=$(
-	  if [ "$bbr_status" == "bbr" ] || [ "$bbr_status" == "bbr2" ]; then
-		echo -e "${GREEN}${bbr_status^^} ✓${RESET}"
-	  else
-		echo -e "${RED}${bbr_status:-Not Set} ✗${RESET}"
-	  fi
-	)
-	local qdisc_display=$(
-	  if [ "$q_status" == "fq" ]; then
-		echo -e "${GREEN}${q_status^^} ✓${RESET}"
-	  else
-		echo -e "${RED}${q_status:-Not Set} ✗${RESET}"
-	  fi
-	)
+      if [ "$bbr_status" == "bbr" ] || [ "$bbr_status" == "bbr2" ]; then
+        echo -e "${GREEN}${bbr_status^^} ✓${RESET}"
+      else
+        echo -e "${RED}${bbr_status:-Not Set} ✗${RESET}"
+      fi
+    )
+    local qdisc_display=$(
+      if [ "$q_status" == "fq" ]; then
+        echo -e "${GREEN}${q_status^^} ✓${RESET}"
+      else
+        echo -e "${RED}${q_status:-Not Set} ✗${RESET}"
+      fi
+    )
 
-    # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  Network:" "$IPV4  $bbr_display + $qdisc_display"
-    # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  Internet:" "$IPV4_onlineIP ($ipv6_status)"
-	
-	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Network:" "$IPV4" "$bbr_display + $qdisc_display"
-	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Internet:" "$IPV4_onlineIP" "$ipv6_status"
-	printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  IPv6:" "$IPV6_onlineIP"
-	
-    # printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-14s${RESET} %s\n" "  BBR + QDisc:" "$bbr_display + $qdisc_display"
-	# printf "${YELLOW}%-14s${RESET} %-20s ${YELLOW}%-10s${RESET} %s\n" "  IPv4:" "$IPV4 ($ipv6_status)"
+    printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Network:" "$IPV4" "$bbr_display + $qdisc_display"
+    printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  Internet:" "$IPV4_onlineIP" "$ipv6_status"
+    printf "${YELLOW}%-14s${RESET} %-22s %s\n" "  IPv6:" "$IPV6_onlineIP"
 }
 
 #######################################
@@ -2281,7 +2317,10 @@ main() {
     fi
     
     log_info "Detected OS: $OS_TYPE, Package Manager: $PKG_MANAGER"
-    
+
+    # Populate session cache once — subsequent dashboard renders use cached values.
+    init_session_cache
+
     main_menu
 }
 
