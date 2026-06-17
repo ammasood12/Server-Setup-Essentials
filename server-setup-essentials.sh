@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.3.1"
+VERSION="v2.5.6.3.2"
 set -euo pipefail
 
 #######################################
@@ -292,21 +292,23 @@ log_error() {
 init_session_cache() {
     echo -e "${CYAN}${BOLD}[INFO]${RESET} ${CYAN}Initializing dashboard (one-time fetch)...${RESET}"
 
-    # NOTE: Every assignment uses "|| true" so set -e never kills the script
-    # when a subcommand returns non-zero (e.g. no IPv6, empty grep, etc.)
+    # Disable pipefail locally: mid-pipeline failures (e.g. grep with no match on WSL,
+    # lsblk/sysctl unsupported on WSL1) must not kill the script.
+    # set -e is handled per-line with || true.
+    set +o pipefail
 
     # --- Static system info (instant) ---
-    SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname || true)
-    SESSION_OS=$(get_os_info || true)
-    SESSION_KERNEL=$(uname -r || true)
-    SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed 's/\<Processor\>//g' | xargs 2>/dev/null || true)
-    SESSION_CORES=$(nproc 2>/dev/null || true)
-    SESSION_DISK_TYPE=$(get_disk_type 2>/dev/null || true)
+    SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "unknown")
+    SESSION_OS=$(get_os_info 2>/dev/null || echo "Unknown OS")
+    SESSION_KERNEL=$(uname -r 2>/dev/null || echo "unknown")
+    SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed 's/\<Processor\>//g' | xargs 2>/dev/null || echo "unknown")
+    SESSION_CORES=$(nproc 2>/dev/null || echo "?")
+    SESSION_DISK_TYPE=$(get_disk_type 2>/dev/null || echo "unknown")
 
-    # --- Network stack (instant) ---
-    SESSION_BBR_STATUS=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}' || true)
-    SESSION_QDISC_STATUS=$(sysctl net.core.default_qdisc 2>/dev/null | awk '{print $3}' || true)
-    SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep inet6 2>/dev/null | head -1 | awk '{print $2}' | cut -d'/' -f1 || true)
+    # --- Network stack (instant, but sysctl may be unavailable on WSL1) ---
+    SESSION_BBR_STATUS=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo "N/A")
+    SESSION_QDISC_STATUS=$(sysctl -n net.core.default_qdisc 2>/dev/null || echo "N/A")
+    SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep -m1 inet6 | awk '{print $2}' | cut -d'/' -f1 || echo "")
 
     # --- Public IPs (slow — curl with fallback chain) ---
     SESSION_IPV4_ONLINE="$(
@@ -329,11 +331,12 @@ init_session_cache() {
 
     # --- vnStat (fast, but run once) ---
     if command -v vnstat >/dev/null 2>&1; then
-        SESSION_VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}' || true)
-        SESSION_VNSTAT_OUTPUT=$(vnstat --oneline 2>/dev/null || true)
+        SESSION_VNSTAT_VERSION=$(vnstat --version 2>/dev/null | awk '{print $2}' || echo "")
+        SESSION_VNSTAT_OUTPUT=$(vnstat --oneline 2>/dev/null || echo "")
     fi
 
     SESSION_CACHE_READY=1
+    set -o pipefail  # restore
 }
 
 #######################################
@@ -432,14 +435,26 @@ detect_ifaces() {
 }
 
 fmt_uptime() {
-    local up=$(uptime -p | sed 's/^up //')
-    up=$(echo "$up" | sed -E 's/weeks?/w/g; s/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g')
-    
-    if echo "$up" | grep -qE '[wd]'; then
-        up=$(echo "$up" | sed -E 's/[0-9]+m//g; s/[0-9]+s//g')
+    # uptime -p may fail on WSL1; fall back to parsing /proc/uptime
+    local up
+    up=$(uptime -p 2>/dev/null | sed 's/^up //') || true
+    if [[ -z "$up" || "$up" == *"error"* ]]; then
+        local secs
+        secs=$(awk '{printf "%d", $1}' /proc/uptime 2>/dev/null || echo 0)
+        local d=$(( secs/86400 )) h=$(( (secs%86400)/3600 )) m=$(( (secs%3600)/60 ))
+        up=""
+        [[ $d -gt 0 ]] && up="${d}d "
+        [[ $h -gt 0 ]] && up="${up}${h}h "
+        [[ $m -gt 0 ]] && up="${up}${m}m"
+        up="${up:-0m}"
+    else
+        up=$(echo "$up" | sed -E 's/weeks?/w/g; s/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g')
+        if echo "$up" | grep -qE '[wd]'; then
+            up=$(echo "$up" | sed -E 's/[0-9]+m//g; s/[0-9]+s//g')
+        fi
+        up=$(echo "$up" | tr -s ' ' | sed 's/ *$//')
     fi
-    
-    echo "$up" | tr -s ' ' | sed 's/ *$//'
+    echo "$up"
 }
 
 get_load_status() {
@@ -509,10 +524,13 @@ get_os_info() {
 ###### Display System Status ######
 
 display_system_status() {
-    # Header information
+    # Header information — who -b returns nothing on WSL, guard against it
+    local boot_str
+    boot_str=$(who -b 2>/dev/null | awk '{print $3, $4}' || true)
+    [[ -z "$boot_str" ]] && boot_str="N/A (WSL)"
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
-        "  Boot:" "$(who -b | awk '{print $3, $4}')" "Uptime:" "$(fmt_uptime)"
-    
+        "  Boot:" "$boot_str" "Uptime:" "$(fmt_uptime)"
+
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
         "  Current:" "$(date '+%Y-%m-%d %H:%M')" "Timezone:" "$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")"
     
@@ -559,8 +577,20 @@ display_bandwidth_info() {
 }
 
 display_traffic_info() {
-    local BOOT_DAYS=$(echo $(($(date +%s) - $(date -d "$(who -b | awk '{print $3, $4}')" +%s))) | awk '{printf "%d days\n", $1/86400}')
-    
+    # who -b returns nothing on WSL; fall back to /proc/uptime
+    local boot_time_str
+    boot_time_str=$(who -b 2>/dev/null | awk '{print $3, $4}' || true)
+    local BOOT_DAYS
+    if [[ -n "$boot_time_str" ]]; then
+        local boot_epoch
+        boot_epoch=$(date -d "$boot_time_str" +%s 2>/dev/null || echo 0)
+        BOOT_DAYS=$(echo $(( $(date +%s) - boot_epoch )) | awk '{printf "%d days\n", $1/86400}')
+    else
+        local uptime_secs
+        uptime_secs=$(awk '{printf "%d", $1}' /proc/uptime 2>/dev/null || echo 0)
+        BOOT_DAYS=$(echo "$uptime_secs" | awk '{printf "%d days\n", $1/86400}')
+    fi
+
     ip -s link | awk -v boot_days="$BOOT_DAYS" '
     function human(x){
         split("B KB MB GB TB",u);
