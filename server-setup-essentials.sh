@@ -1890,8 +1890,8 @@ benchmark_menu() {
         
 		echo -e "   ── ${YELLOW}SpeedTest Tools${RESET} ─────────────────────────"
 		
-        echo "   11) Speedtest - Speedtest-cli"
-        echo "   12) Speedtest - Libre"
+        echo "   11) Speedtest - Speedtest-cli (Country Selection)"
+        echo "   12) Speedtest - Libre (Multi Country)"
 		
 		echo
         echo "   0) Back to Main Menu"
