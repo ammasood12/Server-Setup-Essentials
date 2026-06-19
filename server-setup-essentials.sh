@@ -9,7 +9,7 @@
 # - Comprehensive network optimization
 
 APP_NAME="SERVER SETUP ESSENTIALS"
-VERSION="v2.5.6.3.2"
+VERSION="v2.5.6.4"
 set -euo pipefail
 
 #######################################
@@ -1873,9 +1873,8 @@ benchmark_menu() {
         echo -e "   ── ${YELLOW}Full Benchmark Tools${RESET} ──────────────────────────────"        
         
 		echo "   1) YABS (Yet Another Benchmark Script)"
-        echo "   2) Speedtest (from Ookla)"
-        echo "   3) Bench.sh (Full System Benchmark)"
-        echo "   4) spiritLHLS/ecs Full Check (bash.spiritlhl.net/ecs)"
+        echo "   2) Bench.sh (Full System Benchmark)"
+        echo "   3) spiritLHLS/ecs Full Check (bash.spiritlhl.net/ecs)"
         
 		echo -e "   ── ${YELLOW}Media Checking Tools${RESET} ─────────────────────────"
 		
@@ -1885,16 +1884,21 @@ benchmark_menu() {
         echo "   7) Check Media 1 (Check.Unlock.Media)"
         echo "   8) Check Media 2 (Media.Check.Place)"
         echo "   9) Check Media Quality (Check.Place)"
+		
         echo -e "   ─────────────────────────────────────────────────"		
         echo "   10) Check System Detailed Information"
+        
+		echo -e "   ── ${YELLOW}SpeedTest Tools${RESET} ─────────────────────────"
+		
+        echo "   11) Speedtest - Speedtest-cli"
+        echo "   12) Speedtest - Libre"
+		
 		echo
         echo "   0) Back to Main Menu"
         echo
         
         read -rp "   Choose option [0-8]: " choice
-        case $choice in			
-            1) run_yabs; pause ;;
-            2) run_speedtest; pause ;;
+        case $choice in		
 			# Template
 			# 0) run_generic_command \
                 # "NAME" \
@@ -1902,15 +1906,16 @@ benchmark_menu() {
                 # "COMMAND" \
                 # "DESCIPTION" \
                 # "SOURCE_INFO";
-				# pause ;;
-            3) run_generic_command \
+				# pause ;;	
+            1) run_yabs; pause ;;
+            2) run_generic_command \
                 "Bench.sh" \
 				"interactive" \
 				"wget -qO- bench.sh | bash" \
 				"Classic interactive system benchmark" \
 				"bench.sh";
 				pause ;;
-            4)  run_generic_command \
+            3)  run_generic_command \
 				"spiritLHLS/ecs Check" \
 				"exec" \
 				"bash <(wget -qO- bash.spiritlhl.net/ecs) -en" \
@@ -1958,6 +1963,13 @@ benchmark_menu() {
 				"Non-interactive system information check script" \
 				"https://raw.github.com/tdulcet/Linux-System-Information/master/info.sh";
 				pause ;;
+            11) run_speedtest; pause ;;
+            12)  run_generic_command \
+				"Run Libre SpeedTest" \
+				"exec" \
+				"curl -sSL bench.sh | bash" \
+				"Libre SpeedTest script" \
+				"N/A"; pause ;;
             0) return ;;
             *) log_warn "Invalid choice"; pause ;;
         esac
