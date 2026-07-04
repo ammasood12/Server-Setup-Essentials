@@ -15,7 +15,8 @@ fi
 GITHUB_USER="ammasood12"
 GITHUB_REPO="Server-Setup-Essentials"
 BRANCH="main"
-RAW_BASE="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${BRANCH}"
+FOLDER="sse"
+RAW_BASE="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${BRANCH}/${FOLDER}"
 
 # Directory setup
 INSTALL_DIR="/opt/sse"
