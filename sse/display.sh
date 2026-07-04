@@ -317,7 +317,7 @@ display_resource_usage() {
     fi
     
     local df_output
-    df_output=$(df -h / 2>/dev/null | tail -n 1)
+    df_output=$(df -h / 2>/dev/null | tail -n 1 || echo "")
     local DISK_TOTAL=$(echo "$df_output" | awk '{print $(NF-4)}')
     local DISK_USED=$(echo "$df_output" | awk '{print $(NF-3)}')
     local DISK_PERCENT=$(echo "$df_output" | awk '{print $(NF-1)}')
@@ -366,9 +366,9 @@ display_resource_usage() {
 
 display_network_info() {
     local IPV4
-    IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
+    IPV4=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
     if [[ -z "$IPV4" ]]; then
-        IPV4=$(hostname -i 2>/dev/null | awk '{print $1}')
+        IPV4=$(hostname -i 2>/dev/null | awk '{print $1}' || echo "")
     fi
     if [[ -z "$IPV4" ]]; then
         IPV4=$(ip route get 1 2>/dev/null | awk '{print $NF;exit}' || echo "127.0.0.1")
