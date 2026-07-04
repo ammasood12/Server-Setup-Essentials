@@ -13,8 +13,12 @@ sse_init_session_cache() {
     
     local cpu_info
     cpu_info=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed -E 's/\<(Processor|Logical Core)\>//g' | xargs 2>/dev/null)
-    [[ -z "$cpu_info" ]] && cpu_info=$(awk -F: '/Processor/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | xargs 2>/dev/null)
-    [[ -z "$cpu_info" ]] && cpu_info=$(uname -m 2>/dev/null || echo "unknown")
+    if [[ -z "$cpu_info" ]]; then
+        cpu_info=$(awk -F: '/Processor/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | xargs 2>/dev/null)
+    fi
+    if [[ -z "$cpu_info" ]]; then
+        cpu_info=$(uname -m 2>/dev/null || echo "unknown")
+    fi
     SSE_SESSION_CPU="$cpu_info"
 
     SSE_SESSION_CORES=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "?")
@@ -102,9 +106,15 @@ fmt_uptime() {
         secs=$(awk '{printf "%d", $1}' /proc/uptime 2>/dev/null || echo 0)
         local d=$(( secs/86400 )) h=$(( (secs%86400)/3600 )) m=$(( (secs%3600)/60 ))
         up=""
-        [[ $d -gt 0 ]] && up="${d}d "
-        [[ $h -gt 0 ]] && up="${up}${h}h "
-        [[ $m -gt 0 ]] && up="${up}${m}m"
+        if [[ $d -gt 0 ]]; then
+            up="${d}d "
+        fi
+        if [[ $h -gt 0 ]]; then
+            up="${up}${h}h "
+        fi
+        if [[ $m -gt 0 ]]; then
+            up="${up}${m}m"
+        fi
         up="${up:-0m}"
     else
         up=$(echo "$up" | sed -E 's/weeks?/w/g; s/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g')
@@ -302,7 +312,9 @@ display_resource_usage() {
     local MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
     local MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
     local MEM_PERCENT=0
-    [[ $MEM_TOTAL -gt 0 ]] && MEM_PERCENT=$((MEM_USED * 100 / MEM_TOTAL))
+    if [[ $MEM_TOTAL -gt 0 ]]; then
+        MEM_PERCENT=$((MEM_USED * 100 / MEM_TOTAL))
+    fi
     
     local df_output
     df_output=$(df -h / 2>/dev/null | tail -n 1)
@@ -333,15 +345,20 @@ display_resource_usage() {
     local swap_total=$(get_swap_total_mb)
     local swap_used=$(get_swap_used_mb)
     local swap_percent=0
-    [[ $swap_total -gt 0 ]] && swap_percent=$((swap_used * 100 / swap_total))
+    if [[ $swap_total -gt 0 ]]; then
+        swap_percent=$((swap_used * 100 / swap_total))
+    fi
     local recommended_swap=$(recommended_swap_mb)
     
     if [[ $swap_total -eq 0 ]]; then
         printf "${YELLOW}%-14s${RESET} ${RED}%-22s${RESET} ${RED}%s${RESET}\n" "  Swap:" "Not configured" "❌"
     else
         local swap_color=$RESET
-        [[ $swap_percent -gt 80 ]] && swap_color=$RED
-        [[ $swap_percent -gt 60 ]] && swap_color=$YELLOW
+        if [[ $swap_percent -gt 80 ]]; then
+            swap_color=$RED
+        elif [[ $swap_percent -gt 60 ]]; then
+            swap_color=$YELLOW
+        fi
         printf "${YELLOW}%-14s${RESET} ${swap_color}%-22s${RESET} %s\n" "  Swap:" \
             "${swap_used}MB / ${swap_total}MB (${swap_percent}%)" "$(get_swap_status "$swap_total" "$swap_used" "$swap_percent" "$recommended_swap")"
     fi
@@ -350,8 +367,12 @@ display_resource_usage() {
 display_network_info() {
     local IPV4
     IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
-    [[ -z "$IPV4" ]] && IPV4=$(hostname -i 2>/dev/null | awk '{print $1}')
-    [[ -z "$IPV4" ]] && IPV4=$(ip route get 1 2>/dev/null | awk '{print $NF;exit}' || echo "127.0.0.1")
+    if [[ -z "$IPV4" ]]; then
+        IPV4=$(hostname -i 2>/dev/null | awk '{print $1}')
+    fi
+    if [[ -z "$IPV4" ]]; then
+        IPV4=$(ip route get 1 2>/dev/null | awk '{print $NF;exit}' || echo "127.0.0.1")
+    fi
     
     local IPV4_onlineIP="$SSE_SESSION_IPV4_ONLINE"
     local IPV6_onlineIP="$SSE_SESSION_IPV6_ONLINE"
