@@ -114,6 +114,17 @@ quick_setup_partial() {
     pause
 }
 
+update_script() {
+    echo -e "${CYAN}Fetching latest updates for Server Setup Essentials...${RESET}"
+    local install_url="https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/install.sh"
+    if curl -fsSL "$install_url" | bash; then
+        echo -e "${GREEN}Update completed successfully!${RESET}"
+    else
+        echo -e "${RED}Failed to update. Please check your network connection.${RESET}"
+        exit 1
+    fi
+}
+
 ###### Main Menu ######
 
 main_menu() {
@@ -143,10 +154,10 @@ main_menu() {
         printf "   ${CYAN}%-${col2_width}s${RESET}\n" "10) System Update & Upgrade"
         
         printf "   ${RED}%-${col1_width}s${RESET}" "0) Exit"
-        printf "   %-${col1_width}s\n" ""
+        printf "   ${YELLOW}%-${col2_width}s${RESET}\n" "11) Update Script & Restart"
         
         echo
-        read -rp "   Choose option [0-10]: " choice
+        read -rp "   Choose option [0-11]: " choice
         case $choice in
             1) quick_setup_full ;;
             2) quick_setup_partial ;;
@@ -158,6 +169,12 @@ main_menu() {
             8) logs_optimization_menu ;;
             9) benchmark_menu ;;
             10) run_system_update_enhanced ;;
+            11)
+                update_script
+                echo -e "${GREEN}Restarting Server Setup Essentials...${RESET}"
+                sleep 2
+                exec sse
+                ;;
             0)
                 echo
                 log_ok "   Thank you for using Server Setup Essentials! 👋"
@@ -176,8 +193,7 @@ main() {
     if [[ $# -gt 0 ]]; then
         case "$1" in
             update)
-                echo -e "${CYAN}Checking for updates... (Stub)${RESET}"
-                # Implementation for self-update goes here
+                update_script
                 exit 0
                 ;;
             version|--version|-v)
