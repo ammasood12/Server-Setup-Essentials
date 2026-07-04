@@ -62,7 +62,7 @@ get_disk_available_mb() {
 }
 
 get_active_swap_files() {
-    swapon --show=NAME --noheadings 2>/dev/null | tr -d '[:space:]' || true
+    awk 'NR>1 {print $1}' /proc/swaps 2>/dev/null || true
 }
 
 get_swap_file_size_mb() {

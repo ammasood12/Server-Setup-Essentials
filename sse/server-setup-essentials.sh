@@ -188,17 +188,14 @@ main() {
 
     require_root
     
-    if [[ -f /etc/alpine-release ]]; then
-        redirect_to_alpine_version
-    fi
-    
+
     install_script_dependencies
     trap 'echo; log_error "Script interrupted"; exit 1' INT TERM
     
     echo "=== Server Setup Essentials $SSE_VERSION - $(date) ===" > "$SSE_LOG_FILE"
     
     if [[ "$SSE_OS_TYPE" == "unknown" ]]; then
-        log_warn "This script is optimized for Debian/Ubuntu and CentOS/RHEL based systems"
+        log_warn "This script is optimized for Debian/Ubuntu, CentOS/RHEL, and Alpine based systems"
         read -rp "Continue anyway? (y/N): " proceed
         [[ $proceed =~ ^[Yy]$ ]] || exit 1
     fi

@@ -124,7 +124,9 @@ install_script_dependencies() {
 
 ###### OS Detection & Package Manager ######
 detect_os() {
-    if [[ -f /etc/debian_version ]]; then
+    if [[ -f /etc/alpine-release ]]; then
+        echo "alpine"
+    elif [[ -f /etc/debian_version ]]; then
         echo "debian"
     elif [[ -f /etc/redhat-release ]] || [[ -f /etc/centos-release ]]; then
         echo "centos"
@@ -136,7 +138,9 @@ detect_os() {
 }
 
 detect_package_manager() {
-    if command -v apt &>/dev/null; then
+    if command -v apk &>/dev/null; then
+        echo "apk"
+    elif command -v apt &>/dev/null; then
         echo "apt"
     elif command -v yum &>/dev/null; then
         echo "yum"
@@ -151,7 +155,12 @@ SSE_OS_TYPE=$(detect_os)
 SSE_PKG_MANAGER=$(detect_package_manager)
 
 init_package_lists() {
-    if [[ "$SSE_OS_TYPE" == "debian" ]]; then
+    if [[ "$SSE_OS_TYPE" == "alpine" ]]; then
+        SSE_BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
+        SSE_NETWORK_PACKAGES=("vnstat" "net-tools" "bind-tools" "iputils" "traceroute")
+        SSE_LOG_OPTIMIZATION_PACKAGES=("logrotate")
+        SSE_EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest-cli" "bc")
+    elif [[ "$SSE_OS_TYPE" == "debian" ]]; then
         SSE_BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
         SSE_NETWORK_PACKAGES=("vnstat" "net-tools" "dnsutils" "iputils-ping" "traceroute")
         SSE_LOG_OPTIMIZATION_PACKAGES=("systemd-journal-remote" "logrotate")
@@ -173,6 +182,7 @@ init_package_lists
 pkg_update() {
     log_info "Updating package lists (quiet)..."
     case "$SSE_PKG_MANAGER" in
+        apk) apk update ;;
         apt) apt-get update -qq -y ;;
         yum) yum check-update -q -y || true ;;
         dnf) dnf check-update -q -y || true ;;
@@ -182,6 +192,7 @@ pkg_update() {
 pkg_upgrade() {
     log_info "Upgrading packages..."
     case "$SSE_PKG_MANAGER" in
+        apk) apk upgrade ;;
         apt) DEBIAN_FRONTEND=noninteractive apt-get upgrade -y ;;
         yum|dnf) $SSE_PKG_MANAGER update -y ;;
     esac
@@ -191,6 +202,10 @@ pkg_install() {
     local packages=("$@")
     log_info "Installing packages: ${packages[*]}"
     case "$SSE_PKG_MANAGER" in
+        apk)
+            apk update
+            apk add "${packages[@]}"
+            ;;
         apt)
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
@@ -203,6 +218,7 @@ pkg_remove() {
     local packages=("$@")
     log_info "Removing packages: ${packages[*]}"
     case "$SSE_PKG_MANAGER" in
+        apk) apk del "${packages[@]}" ;;
         apt) apt-get remove -y "${packages[@]}" ;;
         yum|dnf) $SSE_PKG_MANAGER remove -y "${packages[@]}" ;;
     esac
@@ -211,22 +227,10 @@ pkg_remove() {
 pkg_autoremove() {
     log_info "Cleaning up unnecessary packages..."
     case "$SSE_PKG_MANAGER" in
+        apk) apk cache clean ;;
         apt) apt-get autoremove -y --purge ;;
         yum) yum autoremove -y ;;
         dnf) dnf autoremove -y ;;
     esac
 }
 
-redirect_to_alpine_version() {
-    echo -e "${YELLOW}Alpine Linux detected. Redirecting to Alpine version...${RESET}"
-    if ! command -v curl >/dev/null 2>&1; then
-        echo -e "${YELLOW}Installing curl...${RESET}"
-        if command -v apk &>/dev/null; then
-            apk update && apk add curl
-        else
-            apt update -y && apt install -y curl
-        fi
-    fi
-    bash <(curl -fsSL "https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/server-setup-essentials_alpine.sh?$(date +%s)" | sed 's/\r$//')
-    exit 0
-}

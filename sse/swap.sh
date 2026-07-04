@@ -33,7 +33,7 @@ swap_management_menu() {
                 ;;
             4)
                 echo -e "${BOLD}Swap Details:${RESET}"
-                free -h; echo; swapon --show 2>/dev/null || log_info "No swap files active"; echo
+                free -h; echo; cat /proc/swaps 2>/dev/null || log_info "No swap files active"; echo
                 pause
                 ;;
             0) return ;;
@@ -45,7 +45,7 @@ swap_management_menu() {
 cleanup_existing_swap() {
     log_info "Cleaning up existing swap configuration..."
     
-    local active_swaps=$(swapon --show=NAME --noheadings 2>/dev/null || true)
+    local active_swaps=$(awk 'NR>1 {print $1}' /proc/swaps 2>/dev/null || true)
     if [[ -n "$active_swaps" ]]; then
         log_info "Disabling active swap files..."
         swapoff -a 2>/dev/null || log_warn "Some swap files could not be disabled (may be in use)"
@@ -122,7 +122,7 @@ setup_swap() {
     if create_swap_file "$SSE_SWAPFILE" "$target_mb"; then
         echo "$SSE_SWAPFILE none swap sw 0 0" >> /etc/fstab
         log_ok "Swap configuration completed successfully"
-        echo; free -h; echo; swapon --show
+        echo; free -h; echo; cat /proc/swaps
     else
         log_error "Failed to configure swap"
         return 1

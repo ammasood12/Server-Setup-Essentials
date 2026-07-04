@@ -48,6 +48,8 @@ if ! command -v curl >/dev/null 2>&1; then
         yum install -y curl
     elif command -v dnf >/dev/null 2>&1; then
         dnf install -y curl
+    elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache curl bash
     fi
 fi
 
