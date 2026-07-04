@@ -223,7 +223,7 @@ run_speedtest() {
     
     if ! command -v speedtest-cli >/dev/null 2>&1; then
         log_info "speedtest-cli not found. Installing..."
-        if [[ "$SSE_OS_TYPE" == "debian" ]]; then
+        if [[ "$SSE_OS_TYPE" == "debian" ]] || [[ "$SSE_OS_TYPE" == "alpine" ]]; then
             pkg_update >/dev/null 2>&1 && pkg_install "speedtest-cli" >/dev/null 2>&1
         else
             pkg_update >/dev/null 2>&1 && pkg_install "speedtest" >/dev/null 2>&1

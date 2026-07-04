@@ -156,10 +156,10 @@ SSE_PKG_MANAGER=$(detect_package_manager)
 
 init_package_lists() {
     if [[ "$SSE_OS_TYPE" == "alpine" ]]; then
-        SSE_BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
+        SSE_BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq" "bc" "tzdata")
         SSE_NETWORK_PACKAGES=("vnstat" "net-tools" "bind-tools" "iputils" "traceroute")
-        SSE_LOG_OPTIMIZATION_PACKAGES=("logrotate")
-        SSE_EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest-cli" "bc")
+        SSE_LOG_OPTIMIZATION_PACKAGES=()
+        SSE_EXTRA_PACKAGES=("git" "unzip" "screen" "speedtest-cli" "coreutils")
     elif [[ "$SSE_OS_TYPE" == "debian" ]]; then
         SSE_BASE_PACKAGES=("curl" "wget" "nano" "htop" "vnstat" "jq")
         SSE_NETWORK_PACKAGES=("vnstat" "net-tools" "dnsutils" "iputils-ping" "traceroute")

@@ -36,7 +36,20 @@ configure_hostname() {
         return
     fi
     
-    if hostnamectl set-hostname "$new_hostname" 2>/dev/null; then
+    local success=false
+    if command -v hostnamectl >/dev/null 2>&1; then
+        if hostnamectl set-hostname "$new_hostname" 2>/dev/null; then
+            success=true
+        fi
+    fi
+    
+    if [ "$success" = false ]; then
+        if echo "$new_hostname" > /etc/hostname 2>/dev/null && hostname "$new_hostname" 2>/dev/null; then
+            success=true
+        fi
+    fi
+
+    if [ "$success" = true ]; then
         echo "$new_hostname" | tee /etc/hostname >/dev/null 2>&1
         
         if grep -q "127.0.1.1" /etc/hosts 2>/dev/null; then

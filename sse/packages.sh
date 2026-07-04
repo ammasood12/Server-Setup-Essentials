@@ -24,6 +24,8 @@ install_packages() {
         3) 
             if [[ "$SSE_OS_TYPE" == "debian" ]]; then
                 packages=("speedtest-cli" "traceroute" "net-tools" "dnsutils")
+            elif [[ "$SSE_OS_TYPE" == "alpine" ]]; then
+                packages=("speedtest-cli" "traceroute" "net-tools" "bind-tools")
             else
                 packages=("speedtest" "traceroute" "net-tools" "bind-utils")
             fi

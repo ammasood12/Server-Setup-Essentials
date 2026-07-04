@@ -4,6 +4,19 @@
 
 logs_optimization_menu() {
     section_title "System Logs Optimization"
+    
+    if [[ "$SSE_OS_TYPE" == "alpine" ]]; then
+        echo -e "${RED}${BOLD}⚠️  Logs Optimization is not available in Alpine Linux${RESET}"
+        echo -e "${YELLOW}Alpine uses BusyBox syslogd instead of systemd-journald${RESET}"
+        echo -e "${YELLOW}Alternative approaches for Alpine:${RESET}"
+        echo "   • Configure syslogd: /etc/conf.d/syslog"
+        echo "   • Use logrotate with busybox"
+        echo "   • Manual log management with cron jobs"
+        echo
+        read -rp "Press Enter to continue..." _
+        return
+    fi
+
     echo "   (Modify journald.conf.d)"
     echo
     echo "   1) Basic Journal Optimization (Recommended)"

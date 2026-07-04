@@ -171,8 +171,9 @@ EOF
 }
 
 install_sysctl_service() {
-    log_info "Installing persistent sysctl reload service..."
-    cat > /etc/systemd/system/sysctl-reload.service << 'EOF'
+    if command -v systemctl >/dev/null 2>&1; then
+        log_info "Installing persistent sysctl reload service..."
+        cat > /etc/systemd/system/sysctl-reload.service << 'EOF'
 [Unit]
 Description=Reload sysctl settings on boot
 After=network.target
@@ -186,10 +187,13 @@ SuccessExitStatus=1
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl daemon-reload
-    systemctl enable sysctl-reload
-    systemctl start sysctl-reload
-    log_ok "sysctl-reload service installed and enabled"
+        systemctl daemon-reload
+        systemctl enable sysctl-reload
+        systemctl start sysctl-reload
+        log_ok "sysctl-reload service installed and enabled"
+    else
+        log_info "Non-systemd environment detected. Skipping persistent sysctl-reload service installation (sysctl settings are loaded natively by init system)."
+    fi
 }
 
 restore_network_settings() {

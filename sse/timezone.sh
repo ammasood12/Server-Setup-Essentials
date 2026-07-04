@@ -6,7 +6,7 @@ configure_timezone() {
     section_title "Timezone Configuration"
 
     local current_tz
-    current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")
+    current_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || date +%Z 2>/dev/null || echo "Unknown")
     echo
     echo -e "   Current timezone: ${CYAN}${current_tz}${RESET}"
     
@@ -74,7 +74,11 @@ configure_timezone() {
 
     # Apply timezone
     if timedatectl set-timezone "$new_tz" 2>/dev/null; then
-        log_ok "Timezone successfully set to: ${CYAN}$(timedatectl show --property=Timezone --value)${RESET}"
+        log_ok "Timezone successfully set to: ${CYAN}$(timedatectl show --property=Timezone --value 2>/dev/null || echo "$new_tz")${RESET}"
+    elif [[ -f "/usr/share/zoneinfo/${new_tz}" ]]; then
+        ln -sf "/usr/share/zoneinfo/${new_tz}" /etc/localtime
+        echo "$new_tz" > /etc/timezone
+        log_ok "Timezone successfully set to: ${CYAN}${new_tz}${RESET} (OpenRC fallback)"
     else
         log_error "Failed to set timezone: $new_tz"
     fi

@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for module in "$SCRIPT_DIR"/*.sh; do
     if [[ -f "$module" ]]; then
         local_name="$(basename "$module")"
-        if [[ "$local_name" != "server-setup-essentials.sh" ]] && [[ "$local_name" != "install.sh" ]]; then
+        if [[ "$local_name" =~ ^(benchmark|common|display|hostname|logs|network|packages|swap|timezone)\.sh$ ]]; then
             source "$module"
         fi
     fi
@@ -53,9 +53,15 @@ quick_setup_full() {
     [[ $recommended -gt 0 ]] && setup_swap $recommended || log_ok "No swap configuration needed"
     
     sub_section "Step 3: Timezone Configuration"
-    timedatectl set-timezone "$SSE_DEFAULT_TIMEZONE" 2>/dev/null && \
-        log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)" || \
+    if timedatectl set-timezone "$SSE_DEFAULT_TIMEZONE" 2>/dev/null; then
+        log_ok "Timezone set to: $(timedatectl show --property=Timezone --value)"
+    elif [[ -f "/usr/share/zoneinfo/${SSE_DEFAULT_TIMEZONE}" ]]; then
+        ln -sf "/usr/share/zoneinfo/${SSE_DEFAULT_TIMEZONE}" /etc/localtime
+        echo "$SSE_DEFAULT_TIMEZONE" > /etc/timezone
+        log_ok "Timezone set to: ${SSE_DEFAULT_TIMEZONE} (OpenRC fallback)"
+    else
         log_warn "Failed to set timezone"
+    fi
     
     sub_section "Step 4: Package Installation"
     pkg_install "${SSE_BASE_PACKAGES[@]}" && \

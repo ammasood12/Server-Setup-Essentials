@@ -10,13 +10,19 @@ sse_init_session_cache() {
     SSE_SESSION_HOSTNAME=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "unknown")
     SSE_SESSION_OS=$(get_os_info 2>/dev/null || echo "Unknown OS")
     SSE_SESSION_KERNEL=$(uname -r 2>/dev/null || echo "unknown")
-    SSE_SESSION_CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed 's/\<Processor\>//g' | xargs 2>/dev/null || echo "unknown")
-    SSE_SESSION_CORES=$(nproc 2>/dev/null || echo "?")
+    
+    local cpu_info
+    cpu_info=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | sed -E 's/\<(Processor|Logical Core)\>//g' | xargs 2>/dev/null)
+    [[ -z "$cpu_info" ]] && cpu_info=$(awk -F: '/Processor/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null | xargs 2>/dev/null)
+    [[ -z "$cpu_info" ]] && cpu_info=$(uname -m 2>/dev/null || echo "unknown")
+    SSE_SESSION_CPU="$cpu_info"
+
+    SSE_SESSION_CORES=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "?")
     SSE_SESSION_DISK_TYPE=$(get_disk_type 2>/dev/null || echo "unknown")
 
     SSE_SESSION_BBR_STATUS=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo "N/A")
     SSE_SESSION_QDISC_STATUS=$(sysctl -n net.core.default_qdisc 2>/dev/null || echo "N/A")
-    SSE_SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep -m1 inet6 | awk '{print $2}' | cut -d'/' -f1 || echo "")
+    SSE_SESSION_IPV6_LOCAL=$(ip -6 addr show scope global 2>/dev/null | grep -m1 inet6 | awk '{print $2}' | cut -d'/' -f1 || ip -6 addr show 2>/dev/null | grep inet6 | grep -v 'fe80::' | head -n1 | awk '{print $2}' | cut -d'/' -f1 || echo "")
 
     SSE_SESSION_IPV4_ONLINE="$(
         curl -4 -s --max-time 3 https://ping0.cc 2>/dev/null ||
@@ -137,12 +143,44 @@ get_disk_status() {
 }
 
 get_disk_type() {
-    local disk_type_value=$(lsblk -d -o ROTA 2>/dev/null | awk 'NR==2 {print $1}')
-    case "$disk_type_value" in
-        "0") echo -e "${GREEN}🚀 SSD$RESET" ;;
-        "1") echo -e "${BLUE}💾 HDD$RESET" ;;
-        *) echo -e "${YELLOW}💿 Unknown$RESET" ;;
-    esac
+    # 1. Try sysfs rotational flag for the root partition disk
+    local root_dev
+    root_dev=$(df / 2>/dev/null | awk 'NR==2 {print $1}')
+    if [[ -n "$root_dev" ]]; then
+        local disk_name
+        disk_name=$(basename "$root_dev")
+        # Handle NVMe partitions (e.g. nvme0n1p1 -> nvme0n1) and standard partitions (e.g. sda1 -> sda)
+        if [[ "$disk_name" =~ nvme ]]; then
+            disk_name=$(echo "$disk_name" | sed -E 's/p[0-9]+$//')
+        else
+            disk_name=$(echo "$disk_name" | sed -E 's/[0-9]+$//')
+        fi
+        
+        if [[ -f "/sys/block/${disk_name}/queue/rotational" ]]; then
+            local rota
+            rota=$(cat "/sys/block/${disk_name}/queue/rotational" 2>/dev/null)
+            if [[ "$rota" == "0" ]]; then
+                echo -e "${GREEN}🚀 SSD$RESET"
+                return
+            elif [[ "$rota" == "1" ]]; then
+                echo -e "${BLUE}💾 HDD$RESET"
+                return
+            fi
+        fi
+    fi
+
+    # 2. Fallback to lsblk
+    if command -v lsblk >/dev/null 2>&1; then
+        local disk_type_value
+        disk_type_value=$(lsblk -d -o ROTA 2>/dev/null | awk 'NR==2 {print $1}')
+        case "$disk_type_value" in
+            "0") echo -e "${GREEN}🚀 SSD$RESET" ; return ;;
+            "1") echo -e "${BLUE}💾 HDD$RESET" ; return ;;
+        esac
+    fi
+
+    # 3. Default fallback
+    echo -e "${YELLOW}💿 Unknown$RESET"
 }
 
 get_swap_status() {
@@ -159,25 +197,43 @@ get_swap_status() {
 }
 
 get_os_info() {
-    if [[ "$SSE_OS_TYPE" == "debian" ]]; then
+    local OS=""
+    if [[ "$SSE_OS_TYPE" == "alpine" ]]; then
+        OS=$(cat /etc/alpine-release 2>/dev/null)
+        OS="Alpine Linux ${OS:-}"
+    elif [[ "$SSE_OS_TYPE" == "debian" ]]; then
         OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
     else
         OS=$(cat /etc/redhat-release 2>/dev/null || cat /etc/centos-release 2>/dev/null || \
              cat /etc/almalinux-release 2>/dev/null || cat /etc/rocky-release 2>/dev/null || \
              grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
     fi
-    echo "$OS"
+    echo "$OS" | xargs
 }
 
 display_system_status() {
-    local boot_str
-    boot_str=$(who -b 2>/dev/null | awk '{print $3, $4}' || true)
-    [[ -z "$boot_str" ]] && boot_str="N/A (WSL)"
+    local boot_str=""
+    if command -v who >/dev/null 2>&1; then
+        boot_str=$(who -b 2>/dev/null | awk '{print $3, $4}' || true)
+    fi
+    if [[ -z "$boot_str" ]]; then
+        local uptime_secs=$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo 0)
+        if [[ $uptime_secs -gt 0 ]]; then
+            local current_epoch=$(date +%s)
+            local boot_epoch=$((current_epoch - uptime_secs))
+            boot_str=$(date -d "@$boot_epoch" '+%Y-%m-%d %H:%M' 2>/dev/null || date -r "$boot_epoch" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "N/A")
+        else
+            boot_str="N/A"
+        fi
+    fi
+
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
         "  Boot:" "$boot_str" "Uptime:" "$(fmt_uptime)"
 
+    local tz_val
+    tz_val=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || date +%Z 2>/dev/null || echo "Unknown")
     printf "${MAGENTA}%-14s${RESET} %-17s ${MAGENTA}%-10s${RESET} %-20s\n" \
-        "  Current:" "$(date '+%Y-%m-%d %H:%M')" "Timezone:" "$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Unknown")"
+        "  Current:" "$(date '+%Y-%m-%d %H:%M')" "Timezone:" "$tz_val"
     
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${RESET}"
     
@@ -217,32 +273,23 @@ display_bandwidth_info() {
 }
 
 display_traffic_info() {
-    local boot_time_str
-    boot_time_str=$(who -b 2>/dev/null | awk '{print $3, $4}' || true)
-    local BOOT_DAYS
-    if [[ -n "$boot_time_str" ]]; then
-        local boot_epoch=$(date -d "$boot_time_str" +%s 2>/dev/null || echo 0)
-        BOOT_DAYS=$(echo $(( $(date +%s) - boot_epoch )) | awk '{printf "%d days\n", $1/86400}')
-    else
-        local uptime_secs=$(awk '{printf "%d", $1}' /proc/uptime 2>/dev/null || echo 0)
-        BOOT_DAYS=$(echo "$uptime_secs" | awk '{printf "%d days\n", $1/86400}')
-    fi
+    local boot_days
+    local uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo 0)
+    boot_days=$((uptime_seconds / 86400))
 
-    ip -s link | awk -v boot_days="$BOOT_DAYS" '
+    sed 's/:/ /' /proc/net/dev | awk -v boot_days="${boot_days}d" '
     function human(x){
         split("B KB MB GB TB",u); i=1;
         while(x>=1024&&i<5){ x/=1024; i++ }
         return sprintf("%.2f %s",x,u[i])
-    } 
-    /^[0-9]+:/{ iface=$2; gsub(":","",iface) } 
-    /RX:/{ getline; rx=$1 } 
-    /TX:/{
-        getline; tx=$1;
+    }
+    NR > 2 {
+        iface=$1;
         if(iface != "lo") {
-            total=rx+tx;
+            rx=$2; tx=$10; total=rx+tx;
             printf "  %-12s %-9s %-9s %-10s %-10s %-10s\n", "Server", iface, boot_days, human(rx), human(tx), human(total)
         }
-    }' | head -3
+    }' 2>/dev/null | head -3
 }
 
 display_system_info() {
@@ -254,13 +301,25 @@ display_system_info() {
 display_resource_usage() {
     local MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
     local MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
-    local MEM_PERCENT=$((MEM_USED * 100 / MEM_TOTAL))
-    local DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
-    local DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
-    local DISK_PERCENT=$(df -h / | awk 'NR==2 {print $5}')
-    local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
+    local MEM_PERCENT=0
+    [[ $MEM_TOTAL -gt 0 ]] && MEM_PERCENT=$((MEM_USED * 100 / MEM_TOTAL))
+    
+    local df_output
+    df_output=$(df -h / 2>/dev/null | tail -n 1)
+    local DISK_TOTAL=$(echo "$df_output" | awk '{print $(NF-4)}')
+    local DISK_USED=$(echo "$df_output" | awk '{print $(NF-3)}')
+    local DISK_PERCENT=$(echo "$df_output" | awk '{print $(NF-1)}')
+    
+    local LOAD
+    LOAD=$(uptime 2>/dev/null | awk -F'load average:' '{print $2}' | xargs 2>/dev/null || echo "")
+    if [[ -z "$LOAD" ]]; then
+        LOAD=$(awk '{print $1 ", " $2 ", " $3}' /proc/loadavg 2>/dev/null || echo "0.00, 0.00, 0.00")
+    fi
     local load1=$(echo "$LOAD" | awk -F', ' '{print $1}' | sed 's/,//g')
-    local CORES=$(nproc)
+    [[ -z "$load1" ]] && load1="0.00"
+    
+    local CORES
+    CORES=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "1")
     
     local disk_color=$(get_disk_status "$DISK_PERCENT")
     printf "${YELLOW}%-14s${RESET} ${disk_color}%-22s${RESET} %s\n" "  Disk:" \
@@ -289,7 +348,11 @@ display_resource_usage() {
 }
 
 display_network_info() {
-    local IPV4=$(hostname -I | awk '{print $1}')
+    local IPV4
+    IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
+    [[ -z "$IPV4" ]] && IPV4=$(hostname -i 2>/dev/null | awk '{print $1}')
+    [[ -z "$IPV4" ]] && IPV4=$(ip route get 1 2>/dev/null | awk '{print $NF;exit}' || echo "127.0.0.1")
+    
     local IPV4_onlineIP="$SSE_SESSION_IPV4_ONLINE"
     local IPV6_onlineIP="$SSE_SESSION_IPV6_ONLINE"
     local IPV6="$SSE_SESSION_IPV6_LOCAL"
