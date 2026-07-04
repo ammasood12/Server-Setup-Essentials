@@ -117,10 +117,16 @@ quick_setup_partial() {
 update_script() {
     echo -e "${CYAN}Fetching latest updates for Server Setup Essentials...${RESET}"
     local install_url="https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/install.sh"
+    
+    # Try the root install.sh first, if 404 try the sse/ directory
+    if ! curl -sSf "$install_url" > /dev/null 2>&1; then
+        install_url="https://raw.githubusercontent.com/ammasood12/Server-Setup-Essentials/main/sse/install.sh"
+    fi
+
     if curl -fsSL "$install_url" | bash; then
         echo -e "${GREEN}Update completed successfully!${RESET}"
     else
-        echo -e "${RED}Failed to update. Please check your network connection.${RESET}"
+        echo -e "${RED}Failed to update. Please check your network connection or repository URL.${RESET}"
         exit 1
     fi
 }

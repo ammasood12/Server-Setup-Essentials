@@ -11,8 +11,6 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-echo -e "\033[1;36mStarting Server Setup Essentials Installation...\033[0m"
-
 # Centralized repository configuration
 GITHUB_USER="ammasood12"
 GITHUB_REPO="Server-Setup-Essentials"
@@ -21,6 +19,15 @@ RAW_BASE="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${BRAN
 
 # Directory setup
 INSTALL_DIR="/opt/sse"
+WRAPPER_PATH="/usr/local/bin/sse"
+
+if [[ -d "${INSTALL_DIR}" && -f "${WRAPPER_PATH}" ]]; then
+    IS_UPDATE=1
+    echo -e "\033[1;36mStarting Server Setup Essentials Update...\033[0m"
+else
+    IS_UPDATE=0
+    echo -e "\033[1;36mStarting Server Setup Essentials Installation...\033[0m"
+fi
 
 echo -e "Creating directories..."
 mkdir -p "${INSTALL_DIR}"
@@ -54,9 +61,14 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 # Download files
-echo -e "Downloading files from ${RAW_BASE}/sse..."
+if [[ $IS_UPDATE -eq 1 ]]; then
+    echo -e "Updating files from ${RAW_BASE}..."
+else
+    echo -e "Downloading files from ${RAW_BASE}..."
+fi
+
 for FILE in "${FILES[@]}"; do
-    FILE_URL="${RAW_BASE}/sse/${FILE}"
+    FILE_URL="${RAW_BASE}/${FILE}"
     DEST_PATH="${INSTALL_DIR}/${FILE}"
     
     echo -e "  -> Fetching ${FILE}..."
@@ -70,13 +82,17 @@ echo -e "Setting permissions..."
 chmod -R +x "${INSTALL_DIR}"
 
 # Global command wrapper
-WRAPPER_PATH="/usr/local/bin/sse"
-echo -e "Creating global command at ${WRAPPER_PATH}..."
-cat <<EOF > "${WRAPPER_PATH}"
+if [[ $IS_UPDATE -eq 0 ]]; then
+    echo -e "Creating global command at ${WRAPPER_PATH}..."
+    cat <<EOF > "${WRAPPER_PATH}"
 #!/usr/bin/env bash
 exec "${INSTALL_DIR}/server-setup-essentials.sh" "\$@"
 EOF
+    chmod +x "${WRAPPER_PATH}"
+fi
 
-chmod +x "${WRAPPER_PATH}"
-
-echo -e "\033[0;32m[OK] Installation complete! You can now launch the tool by typing: sse\033[0m"
+if [[ $IS_UPDATE -eq 1 ]]; then
+    echo -e "\033[0;32m[OK] Update complete! Server Setup Essentials is now up to date.\033[0m"
+else
+    echo -e "\033[0;32m[OK] Installation complete! You can now launch the tool by typing: sse\033[0m"
+fi
