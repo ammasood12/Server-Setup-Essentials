@@ -68,15 +68,19 @@ optimize_system_logs() {
     sub_section "Step 2: Configuring Journald Limits"
     log_info "Configuring journald system limits..."
     
-    local journald_conf_org="/etc/systemd/journald.conf"
-    if [[ -f "$journald_conf_org" ]]; then
-        mv /etc/systemd/journald.conf /etc/systemd/journald.conf.bk_org
-    fi
-    
     local journald_conf_dir="/etc/systemd/journald.conf.d"
     local journald_conf="${journald_conf_dir}/99-vps-limits.conf"
-	
+    local main_journald="/etc/systemd/journald.conf"
+    
     mkdir -p "$journald_conf_dir"
+    
+    if [[ ! -f "$main_journald" ]]; then
+        mkdir -p /etc/systemd
+        log_info "Creating dummy ${main_journald} file prior to backup..."
+        echo "# Dummy journald.conf created by Server Setup Essentials on $(date '+%Y-%m-%d %H:%M:%S')" > "$main_journald"
+    fi
+    backup_file "$main_journald"
+    echo "# /etc/systemd/journald.conf - Managed by Server Setup Essentials optimization on $(date '+%Y-%m-%d %H:%M:%S'). Original backed up." > "$main_journald"
     
     if [[ -f "$journald_conf" ]]; then
         backup_file "$journald_conf"
@@ -185,8 +189,17 @@ set_custom_journal_limits() {
     
     local journald_conf_dir="/etc/systemd/journald.conf.d"
     local journald_conf="${journald_conf_dir}/99-vps-limits.conf"
+    local main_journald="/etc/systemd/journald.conf"
     
     mkdir -p "$journald_conf_dir"
+    
+    if [[ ! -f "$main_journald" ]]; then
+        mkdir -p /etc/systemd
+        log_info "Creating dummy ${main_journald} file prior to backup..."
+        echo "# Dummy journald.conf created by Server Setup Essentials on $(date '+%Y-%m-%d %H:%M:%S')" > "$main_journald"
+    fi
+    backup_file "$main_journald"
+    echo "# /etc/systemd/journald.conf - Managed by Server Setup Essentials optimization on $(date '+%Y-%m-%d %H:%M:%S'). Original backed up." > "$main_journald"
     
     if [[ -f "$journald_conf" ]]; then
         backup_file "$journald_conf"
@@ -382,11 +395,46 @@ remove_log_optimization() {
     local journald_conf="/etc/systemd/journald.conf.d/99-vps-limits.conf"
     if [[ -f "$journald_conf" ]]; then
         rm -f "$journald_conf"
-        log_ok "Journal drop-in configuration removed"
+        log_ok "Journal drop-in configuration (${journald_conf}) removed"
     else
-        log_warn "No optimization configuration found"
+        log_warn "No active 99-vps optimization configuration found to remove"
+    fi
+
+    local backup_files=()
+    while IFS= read -r file; do
+        [[ -n "$file" ]] && backup_files+=("$file")
+    done < <(ls -t /etc/systemd/journald.conf.bak-* /etc/systemd/journald.conf.d/99-vps-limits.conf.bak-* 2>/dev/null)
+
+    if [[ ${#backup_files[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}Available journald backups:${RESET}"
+        local i=1
+        for bfile in "${backup_files[@]}"; do
+            local mtime=$(date -r "$bfile" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "Unknown time")
+            echo "   $i) $bfile ($mtime)"
+            ((i++))
+        done
+        echo "   0) Skip backup restoration"
+        echo
+
+        read -rp "Select backup to restore [0-${#backup_files[@]}]: " choice
+        if [[ "$choice" =~ ^[1-9][0-9]*$ ]] && (( choice <= ${#backup_files[@]} )); then
+            local selected_backup="${backup_files[$((choice - 1))]}"
+            local target_file="/etc/systemd/journald.conf"
+            if [[ "$selected_backup" == *99-vps-limits.conf.bak-* ]]; then
+                target_file="/etc/systemd/journald.conf.d/99-vps-limits.conf"
+            fi
+
+            log_info "Restoring ${selected_backup} -> ${target_file}..."
+            if cp "$selected_backup" "$target_file"; then
+                log_ok "Restored ${target_file} successfully"
+            else
+                log_error "Failed to restore ${target_file}"
+            fi
+        else
+            log_warn "Backup restoration skipped"
+        fi
     fi
     
-    systemctl restart systemd-journald
-    log_ok "Journald service restarted with default settings"
+    systemctl restart systemd-journald 2>/dev/null || true
+    log_ok "Journald service restarted"
 }
