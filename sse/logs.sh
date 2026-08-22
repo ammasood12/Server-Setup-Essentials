@@ -68,9 +68,14 @@ optimize_system_logs() {
     sub_section "Step 2: Configuring Journald Limits"
     log_info "Configuring journald system limits..."
     
+    local journald_conf_org="/etc/systemd/journald.conf"
+    if [[ -f "$journald_conf_org" ]]; then
+        mv /etc/systemd/journald.conf /etc/systemd/journald.conf.bk_org
+    fi
+    
     local journald_conf_dir="/etc/systemd/journald.conf.d"
     local journald_conf="${journald_conf_dir}/99-vps-limits.conf"
-    
+	
     mkdir -p "$journald_conf_dir"
     
     if [[ -f "$journald_conf" ]]; then

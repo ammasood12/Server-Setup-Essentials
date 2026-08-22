@@ -86,17 +86,18 @@ apply_network_optimization() {
         log_warn "BBR2 not available, using BBR"
     fi
     
-    local sysctl_conf="/etc/sysctl.d/99-vps-optimization.conf"
-    local sysctl_conf_org="/etc/sysctl.conf"
-    
     log_info "Applying network optimization settings to ${sysctl_conf}..."
+	
+    local sysctl_conf_org="/etc/sysctl.conf"
+    if [[ -f "$sysctl_conf_org" ]]; then
+        mv /etc/sysctl.conf /etc/sysctl.conf.bk_org
+    fi
+    
+    local sysctl_conf="/etc/sysctl.d/99-vps-optimization.conf"
     mkdir -p /etc/sysctl.d
     
     if [[ -f "$sysctl_conf" ]]; then
         backup_file "$sysctl_conf"
-    fi
-    if [[ -f "$sysctl_conf_org" ]]; then
-        mv /etc/sysctl.conf /etc/sysctl.conf.bk_org
     fi
     
     cat <<EOF > "$sysctl_conf"
