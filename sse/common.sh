@@ -2,6 +2,8 @@
 #
 # common.sh - Shared utilities, logging, variables, and OS detection
 
+SSE_VERSION="v2.5.7"
+
 # Strict variable naming convention (global variables prefixed with SSE_)
 SSE_SESSION_IPV4_ONLINE=""
 SSE_SESSION_IPV6_ONLINE=""
@@ -87,7 +89,7 @@ print_separator() {
 banner() {
     clear
     echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${CYAN}║              SERVER SETUP ESSENTIALS ${SSE_VERSION:-v2.5.7}                    ║${RESET}"
+    echo -e "${BOLD}${CYAN}║              SERVER SETUP ESSENTIALS ${SSE_VERSION}                    ║${RESET}"
     echo -e "${BOLD}${CYAN}╠════════════════════════════════════════════════════════════════╣${RESET}"
 }
 
