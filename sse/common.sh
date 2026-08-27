@@ -2,7 +2,7 @@
 #
 # common.sh - Shared utilities, logging, variables, and OS detection
 
-SSE_VERSION="v2.5.7.3"
+SSE_VERSION="v2.5.7.3.1"
 
 # Strict variable naming convention (global variables prefixed with SSE_)
 SSE_SESSION_IPV4_ONLINE=""
