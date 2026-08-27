@@ -137,8 +137,8 @@ net.ipv4.tcp_keepalive_time = 120
 net.ipv4.tcp_keepalive_intvl = 30
 net.ipv4.tcp_keepalive_probes = 3
 # Reduces SYN-ACK retry count from default 5 -> faster resource release under load/SYN flood
-# probably problematic, had problems while whatsapp call
-# net.ipv4.tcp_synack_retries = 2
+# before = 2 -> probably problematic, had problems while whatsapp call
+net.ipv4.tcp_synack_retries = 5
 
 ######## MTU & RTT Optimization ########
 net.ipv4.tcp_mtu_probing = 1
