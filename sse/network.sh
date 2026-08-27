@@ -119,11 +119,12 @@ apply_network_optimization() {
     cat <<EOF > "$sysctl_conf"
 # ============================================================
 # Universal sysctl.conf for VPS (Generalized, Safe Everywhere)
-# version: v07.2
+# version: v07.3
+# Date: 2026-08-27
 # ============================================================
 ######## Core Network Optimization ########
 net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = ${bbr_mode}
+net.ipv4.tcp_congestion_control = bbr
 
 ######## Connection Stability ########
 net.ipv4.tcp_fastopen = 3
@@ -135,8 +136,9 @@ net.ipv4.tcp_max_tw_buckets = 5000
 net.ipv4.tcp_keepalive_time = 120
 net.ipv4.tcp_keepalive_intvl = 30
 net.ipv4.tcp_keepalive_probes = 3
-net.ipv4.tcp_synack_retries = 2
 # Reduces SYN-ACK retry count from default 5 -> faster resource release under load/SYN flood
+# probably problematic, had problems while whatsapp call
+# net.ipv4.tcp_synack_retries = 2
 
 ######## MTU & RTT Optimization ########
 net.ipv4.tcp_mtu_probing = 1
@@ -154,6 +156,10 @@ net.ipv4.tcp_wmem = 4096 65536 8388608
 
 # BBR pacing buffer — default 1MB throttles BBR's output on high-BDP paths regardless
 # of tcp_wmem size above. This is the actual throughput-limiting default, not wmem.
+# your BBR throughput fix — deleting regresses long-haul speed
+# ≤512MB NAT/LXD boxes only = 2MB
+# net.ipv4.tcp_limit_output_bytes = 2097152
+# Normal VPS = 4MB
 net.ipv4.tcp_limit_output_bytes = 4194304
 
 ######## UDP / QUIC Optimization ########
@@ -192,9 +198,9 @@ net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
 
 ######## IPv6 0=Enable, 1=Disable ########
-net.ipv6.conf.all.disable_ipv6 = ${disable_ipv6_val}
-net.ipv6.conf.default.disable_ipv6 = ${disable_ipv6_val}
-net.ipv6.conf.lo.disable_ipv6 = ${disable_ipv6_val}
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
 
 ######## File Handles ########
 fs.file-max = 500000
