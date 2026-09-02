@@ -119,8 +119,8 @@ apply_network_optimization() {
     cat <<EOF > "$sysctl_conf"
 # ============================================================
 # Universal sysctl.conf for VPS (Generalized, Safe Everywhere)
-# version: v07.3
-# Date: 2026-08-27
+# version: v07.4
+# Date: 2026-09-02
 # ============================================================
 ######## Core Network Optimization ########
 net.core.default_qdisc = fq
@@ -157,10 +157,9 @@ net.ipv4.tcp_wmem = 4096 65536 8388608
 # BBR pacing buffer — default 1MB throttles BBR's output on high-BDP paths regardless
 # of tcp_wmem size above. This is the actual throughput-limiting default, not wmem.
 # your BBR throughput fix — deleting regresses long-haul speed
-# ≤512MB NAT/LXD boxes only = 2MB
-# net.ipv4.tcp_limit_output_bytes = 2097152
-# Normal VPS = 4MB
-net.ipv4.tcp_limit_output_bytes = 4194304
+# ≤512MB NAT/LXD boxes only = 2097152 (2MB) can use universally
+# Normal VPS = 4194304 (4MB)
+net.ipv4.tcp_limit_output_bytes = 2097152
 
 ######## UDP / QUIC Optimization ########
 net.core.rmem_default = 2097152
@@ -194,8 +193,13 @@ net.ipv4.tcp_syncookies = 1
 net.ipv4.ip_forward = 1
 # rp_filter=0 needed for NAT/relay/multi-homed asymmetric routing.
 # Set to 1 (default) on pure direct-exit single-path nodes — 0 weakens spoofing protection unnecessarily there.
-net.ipv4.conf.all.rp_filter = 0
-net.ipv4.conf.default.rp_filter = 0
+# rp_filter: 1=strict (same iface only), 2=loose (any iface, still blocks spoofed IPs), 0=off (never use)
+# Debian default is already 2 — this override is just explicit/future-proof
+# Direct-exit single-path boxes: can tighten to 1. NAT/relay/multi-homed: keep 2.
+# 2 is safe everywhere (superset of 1), so it's the universal default here.
+# Keep all + default in sync — 'all' is a ceiling vs per-interface values, not an override.
+net.ipv4.conf.all.rp_filter = 2
+net.ipv4.conf.default.rp_filter = 2
 
 ######## IPv6 0=Enable, 1=Disable ########
 net.ipv6.conf.all.disable_ipv6 = 0
