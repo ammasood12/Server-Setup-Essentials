@@ -158,8 +158,9 @@ net.ipv4.tcp_wmem = 4096 65536 8388608
 # of tcp_wmem size above. This is the actual throughput-limiting default, not wmem.
 # your BBR throughput fix — deleting regresses long-haul speed
 # ≤512MB NAT/LXD boxes only = 2097152 (2MB) can use universally
+# net.ipv4.tcp_limit_output_bytes = 2097152
 # Normal VPS = 4194304 (4MB)
-net.ipv4.tcp_limit_output_bytes = 2097152
+net.ipv4.tcp_limit_output_bytes = 4194304
 
 ######## UDP / QUIC Optimization ########
 net.core.rmem_default = 2097152
