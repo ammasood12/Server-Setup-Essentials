@@ -27,7 +27,7 @@ benchmark_menu() {
         
         echo -e "   ── ${YELLOW}SpeedTest Tools${RESET} ─────────────────────────"
         
-        echo "   11) Speedtest - Speedtest-cli (Country Selection)"
+        echo "   11) Speedtest - Ookla Speedtest CLI"
         echo "   12) Speedtest - Libre (Multi Country)"
         
         echo
@@ -218,76 +218,151 @@ run_yabs() {
         "yabs.sh"
 }
 
-run_speedtest() {
-    section_title "Running Speedtest (Ookla)"
+execute_speedtest() {
+    local test_name="$1"
+    local speedtest_cmd="$2"
+    local target_info="${3:-Automatic Optimal}"
+    local log_file="${SSE_SPEEDTEST_LOG_FILE:-/root/speedtest.log}"
     
-    if ! command -v speedtest-cli >/dev/null 2>&1; then
-        log_info "speedtest-cli not found. Installing..."
-        if [[ "$SSE_OS_TYPE" == "debian" ]] || [[ "$SSE_OS_TYPE" == "alpine" ]]; then
-            pkg_update >/dev/null 2>&1 && pkg_install "speedtest-cli" >/dev/null 2>&1
-        else
-            pkg_update >/dev/null 2>&1 && pkg_install "speedtest" >/dev/null 2>&1
+    mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
+    
+    section_title "$test_name"
+    echo -e "${YELLOW}Target:   $target_info${RESET}"
+    echo -e "${YELLOW}Command:  $speedtest_cmd${RESET}"
+    echo -e "${YELLOW}Log File: $log_file${RESET}"
+    echo
+    
+    read -rp "   Proceed with this speedtest? (y/N): " confirm
+    [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Speedtest cancelled"; return 1; }
+    
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S %Z')
+    
+    log_info "Running $test_name..."
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════════${RESET}"
+    
+    local temp_output
+    temp_output=$(mktemp)
+    
+    # Run speedtest interactively, live-stream to terminal, and capture to temp file
+    eval "$speedtest_cmd 2>&1" | tee "$temp_output"
+    local exit_code=${PIPESTATUS[0]}
+    
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════════${RESET}"
+    
+    # Save cleanly formatted history entry to log file
+    {
+        echo "════════════════════════════════════════════════════════════════════"
+        echo "📌 Speedtest:   $test_name"
+        echo "📅 Date & Time: $timestamp"
+        echo "🎯 Target:      $target_info"
+        echo "⚙️  Command:     $speedtest_cmd"
+        echo "────────────────────────────────────────────────────────────────────"
+        if [[ -f "$temp_output" ]]; then
+            sed -E "s/\x1B\[[0-9;]*[a-zA-Z]//g" "$temp_output" | tr -d '\r'
+            rm -f "$temp_output"
         fi
+        echo "════════════════════════════════════════════════════════════════════"
+        echo
+    } >> "$log_file"
+    
+    if [[ $exit_code -eq 0 ]]; then
+        log_ok "Speedtest completed successfully!"
+        log_ok "Results saved to: $log_file"
+    else
+        log_warn "Speedtest finished with exit code $exit_code"
+        log_info "Check log file for details: $log_file"
+    fi
+    
+    return $exit_code
+}
+
+view_speedtest_history() {
+    local log_file="${SSE_SPEEDTEST_LOG_FILE:-/root/speedtest.log}"
+    section_title "Speedtest History"
+    
+    if [[ -f "$log_file" && -s "$log_file" ]]; then
+        echo -e "${CYAN}Log file: ${log_file}${RESET}"
+        echo
+        cat "$log_file"
+        echo
+        read -rp "   Do you want to clear this speedtest history? (y/N): " clear_confirm
+        if [[ $clear_confirm =~ ^[Yy]$ ]]; then
+            > "$log_file"
+            log_ok "Speedtest history cleared"
+        fi
+    else
+        log_warn "No speedtest history found at $log_file"
+    fi
+}
+
+run_speedtest() {
+    section_title "Running Speedtest (Official Ookla CLI)"
+    
+    if ! is_ookla_speedtest; then
+        log_info "Official Ookla Speedtest CLI not detected. Installing..."
+        install_ookla_speedtest || {
+            log_error "Could not install official Ookla Speedtest CLI"
+            return 1
+        }
     fi
     
     echo "   Speedtest options:"
-    echo "   1) Automatic server selection (interactive)"
-    echo "   2) List servers and choose"
-    echo "   3) Test download only"
-    echo "   4) Test upload only"
-    echo "   5) Share results"
+    echo "   1) Automatic optimal server (Default)"
+    echo "   2) List nearest servers and choose Server ID"
+    echo "   3) Test with specific Server ID"
+    echo "   4) Test with specific Server Host"
+    echo "   5) View Speedtest History (/root/speedtest.log)"
+    echo "   6) Reinstall / Update Official Ookla Speedtest CLI"
     echo "   0) Cancel"
     echo
     
-    read -rp "   Choose option [0-5]: " speed_choice
+    read -rp "   Choose option [0-6]: " speed_choice
     
-    [[ "$speed_choice" == "0" ]] && { log_warn "Cancelled"; return 1; }
+    [[ "$speed_choice" == "0" ]] && { log_warn "Cancelled"; return 0; }
     
     case $speed_choice in
         1) 
-            run_generic_command \
-                "Speedtest" \
-                "interactive" \
-                "speedtest-cli" \
-                "Interactive network speed test" \
-                "speedtest.net"
+            execute_speedtest \
+                "Speedtest (Auto Optimal Server)" \
+                "speedtest --accept-license --accept-gdpr" \
+                "Automatic Optimal Server"
             ;;
         2) 
-            log_info "Fetching server list..."
-            speedtest-cli --list | head -20
-            read -rp "   Enter server ID: " server_id
+            log_info "Fetching nearest servers..."
+            speedtest -L --accept-license --accept-gdpr
+            echo
+            read -rp "   Enter Server ID: " server_id
             if [[ -n "$server_id" ]]; then
-                run_generic_command \
-                    "Speedtest" \
-                    "interactive" \
-                    "speedtest-cli --server $server_id" \
-                    "Interactive network speed test with selected server" \
-                    "speedtest.net"
+                execute_speedtest \
+                    "Speedtest (Server ID: $server_id)" \
+                    "speedtest -s $server_id --accept-license --accept-gdpr" \
+                    "Server ID: $server_id"
             fi
             ;;
         3)
-            run_generic_command \
-                "Speedtest (Download Only)" \
-                "interactive" \
-                "speedtest-cli --no-upload" \
-                "Interactive download speed test" \
-                "speedtest.net"
+            read -rp "   Enter Server ID: " server_id
+            if [[ -n "$server_id" ]]; then
+                execute_speedtest \
+                    "Speedtest (Server ID: $server_id)" \
+                    "speedtest -s $server_id --accept-license --accept-gdpr" \
+                    "Server ID: $server_id"
+            fi
             ;;
         4)
-            run_generic_command \
-                "Speedtest (Upload Only)" \
-                "interactive" \
-                "speedtest-cli --no-download" \
-                "Interactive upload speed test" \
-                "speedtest.net"
+            read -rp "   Enter Server Host (e.g. speedtest.example.com:8080): " server_host
+            if [[ -n "$server_host" ]]; then
+                execute_speedtest \
+                    "Speedtest (Host: $server_host)" \
+                    "speedtest -o $server_host --accept-license --accept-gdpr" \
+                    "Server Host: $server_host"
+            fi
             ;;
         5)
-            run_generic_command \
-                "Speedtest (with Sharing)" \
-                "interactive" \
-                "speedtest-cli --share" \
-                "Interactive network speed test with result sharing" \
-                "speedtest.net"
+            view_speedtest_history
+            ;;
+        6)
+            install_ookla_speedtest
             ;;
         *) log_warn "Invalid choice"; return 1 ;;
     esac

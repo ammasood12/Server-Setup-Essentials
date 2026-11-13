@@ -7,7 +7,7 @@ install_packages() {
     echo
     echo "   1) Essential tools (curl, wget, nano, htop, vnstat)"
     echo "   2) Development tools (git, unzip, screen)"
-    echo "   3) Network tools (speedtest-cli, traceroute, ethtool, net-tools)"
+    echo "   3) Network tools (Ookla speedtest, traceroute, ethtool, net-tools)"
     echo "   4) System Update & Upgrade"
     echo "   5) All recommended packages"
     echo "   6) Custom selection"
@@ -17,18 +17,20 @@ install_packages() {
     read -rp "   Choose option [0-6]: " pkg_choice 
     
     local packages=()
+    local install_ookla=0
     
     case $pkg_choice in
         1) packages=("curl" "wget" "nano" "htop" "vnstat") ;;
         2) packages=("git" "unzip" "screen") ;;
         3) 
             if [[ "$SSE_OS_TYPE" == "debian" ]]; then
-                packages=("speedtest-cli" "traceroute" "net-tools" "dnsutils")
+                packages=("traceroute" "ethtool" "net-tools" "dnsutils")
             elif [[ "$SSE_OS_TYPE" == "alpine" ]]; then
-                packages=("speedtest-cli" "traceroute" "net-tools" "bind-tools")
+                packages=("traceroute" "ethtool" "net-tools" "bind-tools")
             else
-                packages=("speedtest" "traceroute" "net-tools" "bind-utils")
+                packages=("traceroute" "ethtool" "net-tools" "bind-utils")
             fi
+            install_ookla=1
             ;;
         4) 
             run_system_update_enhanced
@@ -54,17 +56,27 @@ install_packages() {
             ;;
     esac
     
-    if [[ ${#packages[@]} -eq 0 ]]; then 
+    if [[ ${#packages[@]} -eq 0 && $install_ookla -eq 0 ]]; then 
         log_warn "No packages selected"
         return
     fi
     
-    echo -e "Packages to install: ${CYAN}${packages[*]}${RESET}"
+    if [[ ${#packages[@]} -gt 0 ]]; then
+        echo -e "Packages to install: ${CYAN}${packages[*]}${RESET}"
+    fi
+    if [[ $install_ookla -eq 1 ]]; then
+        echo -e "Additional tools:   ${CYAN}Official Ookla Speedtest CLI${RESET}"
+    fi
     read -rp "Proceed with installation? (y/N): " confirm
     [[ $confirm =~ ^[Yy]$ ]] || { log_warn "Installation cancelled"; return; }
     
-    pkg_update
-    pkg_install "${packages[@]}" && log_ok "Packages installed successfully" || log_error "Some packages failed to install"
+    if [[ ${#packages[@]} -gt 0 ]]; then
+        pkg_update
+        pkg_install "${packages[@]}" && log_ok "Packages installed successfully" || log_error "Some packages failed to install"
+    fi
+    if [[ $install_ookla -eq 1 ]]; then
+        install_ookla_speedtest
+    fi
     pause
 }
 
