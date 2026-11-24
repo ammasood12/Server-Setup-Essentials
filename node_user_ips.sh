@@ -2,7 +2,7 @@
 # ipcheck.sh - run ON the node. Panel IPs via SSH (refresh 60s) -> local per-IP traffic (every 30s)
 # Layout: CONFIG | LIB | PANEL SSH | PANEL REMOTE FUNC | NODE FUNCS | MODULES | MAIN
 
-# v2
+# v3
 
 # how to run
 # FILE='node_user_ips.sh'; sed -i 's/\r$//' $FILE && chmod +x $FILE && ./$FILE
@@ -54,25 +54,13 @@ cleanup(){
 }
 
 ########################## PANEL REMOTE FUNC ##########################
-panel_devices(){  # envf key_id prefix db -> "ip age_s node name"
+panel_devices(){  # envf key_id prefix db -> "ip age_s"
   local envf=$1 id=$2 prefix=$3 db=$4 pass now
-  local dbh dbp dbn dbu dbpwd mysql
-  getenv(){ grep -E "^$1=" "$envf" | head -1 | cut -d= -f2- | tr -d '\r' | sed -E "s/^(['\"])(.*)\1\$/\2/"; }
-  pass=$(getenv REDIS_PASSWORD)
-  dbh=$(getenv DB_HOST); dbp=$(getenv DB_PORT); dbn=$(getenv DB_DATABASE); dbu=$(getenv DB_USERNAME)
-  MYSQL_PWD=$(getenv DB_PASSWORD) export MYSQL_PWD
-  mysql=(mysql -N -h "${dbh:-127.0.0.1}" -P "${dbp:-3306}" -u "$dbu" -D "$dbn")
+  pass=$(grep -E "^REDIS_PASSWORD=" "$envf" | head -1 | cut -d= -f2- | tr -d '\r' \
+        | sed -E "s/^(['\"])(.*)\1\$/\2/")
   now=$(date +%s)
-  # node id -> name map
-  declare -A NN
-  while IFS=$'\t' read -r nid nname; do [ -n "$nid" ] && NN["$nid"]="$nname"; done \
-    < <("${mysql[@]}" -e "SELECT id, name FROM v2_server")
-  # HGETALL: field=node:ip value=ts
   redis-cli -a "$pass" --no-auth-warning -n "$db" HGETALL "$prefix:$id" \
-    | paste - - | while read -r field ts; do
-        node="${field%%:*}"; ip="${field#*:}"
-        printf '%s %s %s %s\n' "$ip" "$(( now - ts ))" "$node" "${NN[$node]:-unknown}"
-      done
+    | paste - - | awk -v n=$now '{print $1, n-$2}'
 }
 
 ########################## NODE FUNCS (local) ##########################
@@ -125,12 +113,11 @@ node_tick(){  # one iteration, stateful in $STATE
 }
 
 ########################## MODULES ##########################
-panel_refresh(){
+panel_refresh(){  # sets PANEL_OUT, LIST
   PANEL_OUT=$(rexec panel_devices panel_devices "$ENVF" "$KEY_ID" "$REDIS_KEY_PREFIX" "$REDIS_DB")
-  LIST=$(echo "$PANEL_OUT" | awk 'NF{print $1}' | sort -u | tr '\n' ' ')
+  LIST=$(echo "$PANEL_OUT" | awk 'NF{sub(/^[0-9]+:/,"",$1); print $1}' | sort -u | tr '\n' ' ')
   log "### $(date '+%F %T') panel: user=$KEY_ID ips=$(echo $LIST | wc -w)"
-  # ip age node name  ->  "   ip   [node] name   age_s ago"
-  echo "$PANEL_OUT" | sort -k2 -n | awk 'NF{printf "   %-40s [%s] %-16s %ss ago\n",$1,$3,$4,$2}'
+  echo "$PANEL_OUT" | sort -k2 -n | awk 'NF{printf "   %-40s %ss ago\n",$1,$2}'
 }
 node_check(){ log "== $(date +%T) node"; node_tick; }
 
