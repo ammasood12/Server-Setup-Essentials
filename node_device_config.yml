@@ -1,0 +1,102 @@
+# ============================================================================
+# device_config.yml  (optional, lives next to config.yml)
+#
+# While this file exists, the values below replace the built-in defaults.
+# Delete a key (or the whole file) to get the built-in default back.
+#   Turn on : xbctl config device enable
+#   Turn off: xbctl config device disable    (keeps your edits as device_config.yml.off)
+#   Check   : xbctl config device            (shows what is in effect, reports typos)
+# After editing, save. The node reloads by itself within a few seconds
+# (or run: systemctl restart xboard-node).
+#
+# The device limit NUMBER comes from the admin panel (per user / package).
+# Users or packages without a panel limit are never rejected or kicked.
+# Device limiting applies to the sing-box kernel only.
+# An instance that has its own device_limit: block in config.yml wins over this file.
+# ============================================================================
+
+# ==================== Panel sync ====================
+# fixed2 settings
+# count_method: recent_connection
+# recent_connection_seconds: 180
+# ipv4_ipv6_counting: separate
+# block_devices: true
+# reject_new_device_immediately: true
+# over_limit_kick_after_minutes: 0   # kick at once, as fixed3 did
+# tcp_keepalive_seconds: 180
+# clear_panel_when_user_idle: true
+
+# ==================== Panel sync ====================
+# rest_polling_with_websocket
+#   true  = keep polling the panel over REST while the websocket is connected (built-in default)
+#   false = poll over REST only while the websocket is down
+# Has no effect when the panel has WebSocket turned off (the node is REST only then).
+sync:
+    rest_polling_with_websocket: true
+
+# ==================== Device limit ====================
+device_limit:
+    # count_method: when does an IP count as an active device?
+    #   recent_connection = the client sent data within recent_connection_seconds
+    #   traffic           = the IP moved at least min_traffic_kb within traffic_check_seconds
+    #                       (drops idle / keepalive-only IPs faster)
+    #   off               = every connected IP counts, nothing is blocked
+    # Built-in default: recent_connection
+    count_method: traffic
+
+    # recent_connection_seconds: only used by recent_connection. Larger = a device
+    # stays counted longer after it goes quiet. Built-in default: 180
+    recent_connection_seconds: 180
+
+    # min_traffic_kb: only used by traffic. Raise it if keepalive-only IPs still count;
+    # lower it if real but light users are missed. Built-in default: 100
+    min_traffic_kb: 100
+
+    # traffic_check_seconds: only used by traffic. Multiple of 10, from 10 to 120.
+    # Built-in default: 60
+    traffic_check_seconds: 60
+
+    # ipv4_ipv6_counting: separate | merge
+    #   separate = IPv4 and IPv6 addresses are counted as different devices
+    #   merge    = a user's devices = the larger of (active IPv4 devices, active IPv6 devices),
+    #              so one phone that appears on both address families counts once
+    # Built-in default: separate
+    ipv4_ipv6_counting: separate
+
+    # block_devices: enforce the limit set in the admin panel?
+    #   true  = devices over the limit are rejected / disconnected (see the delay below)
+    #   false = test run: only count and log, never reject or disconnect anyone
+    # Built-in default: true
+    block_devices: true
+
+    # log_over_limit_devices: write a log line for every device found over the limit
+    # (user, ip, limit, action taken). Rate limited per user. Built-in default: true
+    log_over_limit_devices: false
+
+    # reject_new_device_immediately:
+    #   false = a new IP is let in and only handled by the delayed check below
+    #   true  = a new IP is refused at once when the user is already at the limit
+    # Built-in default: false
+    reject_new_device_immediately: true
+
+    # over_limit_kick_after_minutes: disconnect only if the user was over the limit for
+    # this many minutes within the last over_limit_watch_minutes. 0 = disconnect at once.
+    # If real users get kicked by mistake (carrier / campus NAT), raise this first.
+    # Built-in default: 5
+    over_limit_kick_after_minutes: 0
+
+    # over_limit_watch_minutes: the window the value above is measured in.
+    # Built-in default: 10
+    over_limit_watch_minutes: 10
+
+    # tcp_keepalive_seconds: close client sockets that died without saying goodbye,
+    # so they stop counting as devices. 0 = off. Built-in default: 180
+    tcp_keepalive_seconds: 180
+
+    # clear_panel_when_user_idle: a user whose connections are all idle reports an empty
+    # device list, so the panel drops the old entries. Built-in default: true
+    clear_panel_when_user_idle: true
+
+    # ignore_ips: IPs or CIDR ranges that never count as a device and are never blocked
+    # (relay / own servers). Example: ["203.0.113.7", "2001:db8::/32"]. Built-in default: none
+    ignore_ips: []
