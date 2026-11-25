@@ -2,7 +2,7 @@
 # ipcheck.sh - run ON the node. Panel IPs via SSH (refresh 60s) -> local per-IP traffic (every 30s)
 # Layout: CONFIG | LIB | PANEL SSH | PANEL REMOTE FUNC | NODE FUNCS | MODULES | MAIN
 
-# v3
+# v3.2  (mode prompt first; panel fields only in panel mode; user ID asked last)
 
 # how to run
 # FILE='node_user_ips.sh'; sed -i 's/\r$//' $FILE && chmod +x $FILE && ./$FILE
@@ -49,7 +49,8 @@ rexec(){  # rexec "<funcs to ship>" <entry fn> [args...]  -> runs on panel
 }
 cleanup(){
   rm -rf "$STATE"
-  ssh -p "$PANEL_PORT" "${SSH_OPTS[@]}" -O exit "$PANEL_USER@$PANEL_HOST" 2>/dev/null
+  [ -n "$MODE" ] && [ "$MODE" = panel ] && \
+    ssh -p "$PANEL_PORT" "${SSH_OPTS[@]}" -O exit "$PANEL_USER@$PANEL_HOST" 2>/dev/null
   rm -f "$AP"
 }
 
@@ -81,19 +82,21 @@ node_snap(){  # ports -> "ip clientport t bytes"
        if (match($0,/bytes_sent:[0-9]+/))     b+=substr($0,RSTART+11,RLENGTH-11)
        print ip, port, "t", b, lp}'
 }
-node_delta(){  # prev cur -> "ip KB conns"
+node_delta(){  # prev cur -> "ip KB conns ports"
   awk 'FILENAME==ARGV[1]{pr[$1" "$2" "$3]=$4;next}
     {k=$1" "$2" "$3; d=$4-((k in pr)?pr[k]:0); if(d<0)d=0; kb[$1]+=d/1024; c[$1]++
      if(index(","pt[$1]",", ","$5",")==0) pt[$1]=pt[$1] ((pt[$1]=="")?"":",") $5}
     END{for(i in kb) print i, kb[i], c[i], pt[i]}' "$1" "$2"
 }
 node_report(){  # list interval dprev dcur
+  # If list is empty -> report ALL IPs seen (all-traffic mode).
   awk -v L="$1" -v I="$2" '
-   BEGIN{n=split(L,a," "); for(i=1;i<=n;i++) want[a[i]]=1}
+   BEGIN{n=split(L,a," "); allmode=(n==0); for(i=1;i<=n;i++) want[a[i]]=1}
    FILENAME==ARGV[1]{p[$1]=$2; all[$1]=1; next}
    {c[$1]=$2; f[$1]=$3; q[$1]=$4; all[$1]=1}
    END{cmd="sort -nr"
-    for(i in all){ if(!(i in want)) continue
+    for(i in all){
+      if(!allmode && !(i in want)) continue
       s30=(i in c)?c[i]:0; s60=s30+((i in p)?p[i]:0)
       if(s60>0) printf "%10.1f KB/60s %9.1f KB/%ds conns=%-3d ports=%-12s %s\n",s60,s30,I,f[i]+0,q[i],i | cmd
       tot+=s30; if(s60>=100)n100++; if(s60>=500)n500++; if(s60>0)nany++}
@@ -123,18 +126,39 @@ node_check(){ log "== $(date +%T) node"; node_tick; }
 
 ########################## MAIN ##########################
 prompt_inputs(){
-  ask PANEL_HOST "Panel IP"; ask PANEL_PASS "Panel password" s
-  PANEL_PORT=${PANEL_PORT:-22}
-  ask PANEL_ENV_PATH "Panel .env path (e.g. /var/www/website/.env)"
-  [ -z "$PANEL_ENV_PATH" ] && { log "PANEL_ENV_PATH is required"; exit 1; }
-  ENVF="$PANEL_ENV_PATH"
-  read -rp "User ID: " KEY_ID
+  # 1) mode
+  if [ -z "$MODE" ]; then
+    local m
+    read -rp "Mode [1=panel IPs, 2=all server traffic]: " m
+    case "$m" in
+      1|panel|p|P) MODE=panel ;;
+      2|all|a|A)   MODE=all   ;;
+      *) log "invalid mode"; exit 1 ;;
+    esac
+  fi
+  # 2-4) panel connection details (panel mode only)
+  if [ "$MODE" = panel ]; then
+    ask PANEL_HOST "Panel IP"
+    ask PANEL_PASS "Panel password" s
+    PANEL_PORT=${PANEL_PORT:-22}
+    ask PANEL_ENV_PATH "Panel .env path (e.g. /var/www/website/.env)"
+    [ -z "$PANEL_ENV_PATH" ] && { log "PANEL_ENV_PATH is required"; exit 1; }
+    ENVF="$PANEL_ENV_PATH"
+  fi
+  # 5) ports
   read -rp "Port (blank = auto-detect active ports): " PORT
+  # 6) user ID (panel mode only; blank here = all traffic too)
+  if [ "$MODE" = panel ]; then
+    read -rp "User ID (blank = all server traffic): " KEY_ID
+    [ -z "$KEY_ID" ] && MODE=all
+  fi
 }
 run_loop(){
   local tick=0
   while true; do
-    (( tick % PANEL_EVERY == 0 )) && panel_refresh
+    if [ "$MODE" = panel ]; then
+      (( tick % PANEL_EVERY == 0 )) && panel_refresh
+    fi
     node_check
     tick=$((tick+1)); sleep "$INT"
   done
@@ -142,7 +166,12 @@ run_loop(){
 main(){
   STATE="/tmp/ipcheck_$$"; trap cleanup EXIT
   prompt_inputs
-  ssh_askpass_init; panel_login
-  run_loop | tee "$LOG_DIR/ipcheck_${KEY_ID}.log"
+  if [ "$MODE" = panel ]; then
+    ssh_askpass_init; panel_login
+  else
+    log "all-traffic mode -> no panel SSH, reporting ALL server traffic"
+    LIST=""
+  fi
+  run_loop | tee "$LOG_DIR/ipcheck_${KEY_ID:-all}.log"
 }
 main
