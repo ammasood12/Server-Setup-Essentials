@@ -16,17 +16,6 @@
 # ============================================================================
 
 # ==================== Panel sync ====================
-# fixed2 settings
-# count_method: recent_connection
-# recent_connection_seconds: 180
-# ipv4_ipv6_counting: separate
-# block_devices: true
-# reject_new_device_immediately: true
-# over_limit_kick_after_minutes: 0   # kick at once, as fixed3 did
-# tcp_keepalive_seconds: 180
-# clear_panel_when_user_idle: true
-
-# ==================== Panel sync ====================
 # rest_polling_with_websocket
 #   true  = keep polling the panel over REST while the websocket is connected (built-in default)
 #   false = poll over REST only while the websocket is down
@@ -71,7 +60,7 @@ device_limit:
 
     # log_over_limit_devices: write a log line for every device found over the limit
     # (user, ip, limit, action taken). Rate limited per user. Built-in default: true
-    log_over_limit_devices: false
+    log_over_limit_devices: true
 
     # reject_new_device_immediately:
     #   false = a new IP is let in and only handled by the delayed check below
